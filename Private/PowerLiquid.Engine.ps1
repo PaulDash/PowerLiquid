@@ -59,8 +59,8 @@ function Register-LiquidTag {
         [Parameter(Mandatory = $true)]
         [hashtable]$Registry,
 
-        [Parameter(Mandatory = $true)]
-        [string]$Dialect,
+        [ValidateSet('Liquid', 'JekyllLiquid')]
+        [string]$Dialect = 'Liquid',
 
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -101,8 +101,8 @@ function Register-LiquidFilter {
         [Parameter(Mandatory = $true)]
         [hashtable]$Registry,
 
-        [Parameter(Mandatory = $true)]
-        [string]$Dialect,
+        [ValidateSet('Liquid', 'JekyllLiquid')]
+        [string]$Dialect = 'Liquid',
 
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -159,8 +159,8 @@ function AssertLiquidDialect {
     [CmdletBinding()]
     [OutputType([void])]
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Dialect
+        [ValidateSet('Liquid', 'JekyllLiquid')]
+        [string]$Dialect = 'Liquid'
     )
 
     # Keep dialect validation in one place so rendering and AST generation follow the same rules.
@@ -1105,8 +1105,8 @@ function getLiquidDialectExtension {
     [OutputType([object[]])]
     param(
         [hashtable]$Registry,
-        [Parameter(Mandatory = $true)]
-        [string]$Dialect
+        [ValidateSet('Liquid', 'JekyllLiquid')]
+        [string]$Dialect = 'Liquid'
     )
 
     if ($null -eq $Registry -or -not $Registry.ContainsKey('Dialects')) {
@@ -1485,8 +1485,8 @@ function newLiquidRuntime {
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
 
-        [Parameter(Mandatory = $true)]
-        [string]$Dialect,
+        [ValidateSet('Liquid', 'JekyllLiquid')]
+        [string]$Dialect = 'Liquid',
 
         [string]$IncludeRoot,
 
@@ -1793,6 +1793,7 @@ function ConvertTo-LiquidAst {
         [AllowEmptyString()]
         [string]$Template,
 
+        [ValidateSet('Liquid', 'JekyllLiquid')]
         [string]$Dialect = 'Liquid',
 
         [hashtable]$Registry = (newLiquidExtensionRegistry),
@@ -1867,6 +1868,7 @@ function Invoke-LiquidTemplate {
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
 
+        [ValidateSet('Liquid', 'JekyllLiquid')]
         [string]$Dialect = 'Liquid',
 
         [string]$IncludeRoot,

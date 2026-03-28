@@ -27,6 +27,7 @@ function ConvertTo-LiquidAst {
         [AllowEmptyString()]
         [string]$Template,
 
+        [ValidateSet('Liquid', 'JekyllLiquid')]
         [string]$Dialect = 'Liquid',
 
         [hashtable]$Registry = (New-LiquidExtensionRegistry),

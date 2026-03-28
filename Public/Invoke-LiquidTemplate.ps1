@@ -44,6 +44,7 @@ function Invoke-LiquidTemplate {
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
 
+        [ValidateSet('Liquid', 'JekyllLiquid')]
         [string]$Dialect = 'Liquid',
 
         [string]$IncludeRoot,

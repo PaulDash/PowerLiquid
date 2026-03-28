@@ -22,8 +22,8 @@ function Register-LiquidTag {
         [Parameter(Mandatory = $true)]
         [hashtable]$Registry,
 
-        [Parameter(Mandatory = $true)]
-        [string]$Dialect,
+        [ValidateSet('Liquid', 'JekyllLiquid')]
+        [string]$Dialect = 'Liquid',
 
         [Parameter(Mandatory = $true)]
         [string]$Name,
