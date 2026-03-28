@@ -20,6 +20,7 @@ function New-LiquidExtensionRegistry {
 
     # Each dialect keeps separate custom tags and filters so extensions can stay dialect-specific.
     return @{
+        TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
         Dialects = @{
             Liquid = @{
                 Tags    = @{}
@@ -116,6 +117,41 @@ function Register-LiquidFilter {
     $Registry.Dialects[$Dialect].Filters[$Name.ToLowerInvariant()] = $Handler
 }
 
+<#
+.SYNOPSIS
+Registers a trusted CLR type for object-property access.
+.DESCRIPTION
+By default, PowerLiquid sanitizes host-provided data down to inert scalars,
+collections, hashtables, and note-property objects. If a host application wants
+to expose a specific CLR type's public properties to templates, it must opt in
+explicitly by registering that type as trusted.
+
+This keeps untrusted input safe by default while still allowing trusted host
+models, such as strongly-typed document objects, to participate in templates.
+.PARAMETER Registry
+The extension registry created by New-LiquidExtensionRegistry.
+.PARAMETER TypeName
+The CLR type name to trust. Both full names and short names are matched.
+.EXAMPLE
+Register-LiquidTrustedType -Registry $registry -TypeName HydeDocument
+#>
+function Register-LiquidTrustedType {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Registry,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TypeName
+    )
+
+    if (-not $Registry.ContainsKey('TrustedTypes') -or $null -eq $Registry.TrustedTypes) {
+        $Registry.TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    }
+
+    [void]$Registry.TrustedTypes.Add($TypeName)
+}
+
 function assertLiquidDialect {
     [CmdletBinding()]
     param(
@@ -131,6 +167,116 @@ function assertLiquidDialect {
             throw "Liquid dialect '$Dialect' is not supported yet."
         }
     }
+}
+
+function testLiquidTrustedType {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        $Value,
+
+        [hashtable]$Registry
+    )
+
+    if ($null -eq $Value -or $null -eq $Registry -or -not $Registry.ContainsKey('TrustedTypes') -or $null -eq $Registry.TrustedTypes) {
+        return $false
+    }
+
+    $type = $Value.GetType()
+    return ($Registry.TrustedTypes.Contains($type.FullName) -or $Registry.TrustedTypes.Contains($type.Name))
+}
+
+function convertToLiquidSafeScalar {
+    [CmdletBinding()]
+    param(
+        $Value
+    )
+
+    # Scalar values can be used directly because reading them later does not require reflective property access.
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    if ($Value -is [string] -or
+        $Value -is [char] -or
+        $Value -is [bool] -or
+        $Value -is [byte] -or
+        $Value -is [sbyte] -or
+        $Value -is [int16] -or
+        $Value -is [uint16] -or
+        $Value -is [int32] -or
+        $Value -is [uint32] -or
+        $Value -is [int64] -or
+        $Value -is [uint64] -or
+        $Value -is [single] -or
+        $Value -is [double] -or
+        $Value -is [decimal] -or
+        $Value -is [datetime] -or
+        $Value -is [timespan] -or
+        $Value -is [guid]) {
+        return $Value
+    }
+
+    return $null
+}
+
+function convertToLiquidSafeValue {
+    [CmdletBinding()]
+    param(
+        $Value,
+
+        [hashtable]$Registry
+    )
+
+    # Reduce host-provided data to inert structures so template evaluation cannot trigger arbitrary property getters.
+    $scalarValue = convertToLiquidSafeScalar -Value $Value
+    if ($null -ne $scalarValue -or $null -eq $Value) {
+        return $scalarValue
+    }
+
+    if ($Value -is [System.Collections.IDictionary]) {
+        $safeTable = @{}
+        foreach ($key in $Value.Keys) {
+            $safeTable[[string]$key] = convertToLiquidSafeValue -Value $Value[$key] -Registry $Registry
+        }
+
+        return $safeTable
+    }
+
+    if (testLiquidTrustedType -Value $Value -Registry $Registry) {
+        $safeTable = @{}
+        foreach ($property in @($Value.PSObject.Properties | Where-Object { $_.MemberType -in @('Property', 'NoteProperty') })) {
+            $safeTable[[string]$property.Name] = convertToLiquidSafeValue -Value $property.Value -Registry $Registry
+        }
+
+        return [pscustomobject]$safeTable
+    }
+
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $safeItems = New-Object System.Collections.ArrayList
+        foreach ($item in $Value) {
+            [void]$safeItems.Add((convertToLiquidSafeValue -Value $item -Registry $Registry))
+        }
+
+        return ,@($safeItems.ToArray())
+    }
+
+    if ($Value -is [pscustomobject]) {
+        $noteProperties = @($Value.PSObject.Properties | Where-Object { $_.MemberType -eq 'NoteProperty' })
+        if ($noteProperties.Count -eq 0) {
+            return $null
+        }
+
+        $safeTable = @{}
+        foreach ($property in $noteProperties) {
+            $safeTable[[string]$property.Name] = convertToLiquidSafeValue -Value $property.Value -Registry $Registry
+        }
+
+        return $safeTable
+    }
+
+    # Unsupported objects are intentionally collapsed so template access never invokes arbitrary CLR or script-backed properties.
+    return $null
 }
 
 function Split-LiquidDelimitedString {
@@ -727,7 +873,9 @@ function Get-LiquidRuntimeValue {
         }
     }
 
-    $property = $Value.PSObject.Properties | Where-Object { $_.Name -ieq $MemberName } | Select-Object -First 1
+    $property = $Value.PSObject.Properties |
+        Where-Object { ($_.MemberType -eq 'NoteProperty') -and ($_.Name -ieq $MemberName) } |
+        Select-Object -First 1
     if ($null -ne $property) {
         Write-Output -NoEnumerate $property.Value
         return
@@ -761,7 +909,9 @@ function Resolve-LiquidVariable {
                 }
             }
         } else {
-            $property = $scope.PSObject.Properties | Where-Object { $_.Name -ieq $segments[0] } | Select-Object -First 1
+            $property = $scope.PSObject.Properties |
+                Where-Object { ($_.MemberType -eq 'NoteProperty') -and ($_.Name -ieq $segments[0]) } |
+                Select-Object -First 1
             if ($null -ne $property) {
                 $value = $property.Value
                 $foundValue = $true
@@ -835,7 +985,9 @@ function Resolve-LiquidVariable {
                     $resolvedMember = $true
                 }
             } else {
-                $property = $value.PSObject.Properties | Where-Object { $_.Name -ieq $memberName } | Select-Object -First 1
+                $property = $value.PSObject.Properties |
+                    Where-Object { ($_.MemberType -eq 'NoteProperty') -and ($_.Name -ieq $memberName) } |
+                    Select-Object -First 1
                 if ($null -ne $property) {
                     $resolvedMemberValue = $property.Value
                     $resolvedMember = $true
@@ -851,6 +1003,14 @@ function Resolve-LiquidVariable {
         }
 
         if ($null -ne $value) {
+            if (($value -is [System.Collections.IEnumerable]) -and
+                ($value -isnot [string]) -and
+                ($value -isnot [System.Collections.IDictionary]) -and
+                (@($value).Count -eq 1)) {
+                Write-Output -NoEnumerate $value
+                return
+            }
+
             return $value
         }
     }
@@ -1308,7 +1468,7 @@ function New-LiquidRuntime {
 
     # The runtime keeps a scope stack so assign/capture can add temporary variables during rendering.
     $scopes = New-Object System.Collections.ArrayList
-    [void]$scopes.Add($Context)
+    [void]$scopes.Add((convertToLiquidSafeValue -Value $Context -Registry $Registry))
 
     return @{
         Scopes       = $scopes
@@ -1330,7 +1490,7 @@ function Add-LiquidScope {
     )
 
     # New scopes are pushed to the front so lookups see the most local variables first.
-    $Runtime.Scopes.Insert(0, $Scope)
+    $Runtime.Scopes.Insert(0, (convertToLiquidSafeValue -Value $Scope -Registry $Runtime.Registry))
 }
 
 function Remove-LiquidScope {
@@ -1634,6 +1794,11 @@ Renders a Liquid template.
 Parses and renders a Liquid template against a supplied context hashtable.
 PowerLiquid supports multiple dialects and host-provided extension registries
 for custom tags and filters.
+
+Before rendering, the supplied context is reduced to inert Liquid-safe data
+structures. That means templates can read scalars, arrays, hashtables, and
+note-property objects, but they do not execute arbitrary PowerShell script
+properties or reflective object getters from untrusted input data.
 .PARAMETER Template
 The Liquid template source to render.
 .PARAMETER Context
@@ -1646,6 +1811,10 @@ The base path used when resolving include files.
 The current include stack, primarily used internally for recursion detection.
 .PARAMETER Registry
 The extension registry containing custom tags and filters.
+.NOTES
+Custom tags and filters registered through the extension registry are trusted
+host code by design. The template language itself does not compile or execute
+PowerShell from template text or context data.
 .OUTPUTS
 System.String
 .EXAMPLE

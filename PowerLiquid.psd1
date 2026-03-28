@@ -15,6 +15,7 @@
         'New-LiquidExtensionRegistry'
         'Register-LiquidTag'
         'Register-LiquidFilter'
+        'Register-LiquidTrustedType'
     )
 
     CmdletsToExport   = @()

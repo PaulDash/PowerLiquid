@@ -156,3 +156,15 @@ The AST root shape is intended to be stable:
 - optional `Tokens`
 
 The individual node set will grow as PowerLiquid adds more Liquid features, but existing node shapes should remain compatible where practical.
+
+## Security Notes
+
+`ConvertTo-LiquidAst` is parse-only. It does not evaluate context data, filters, includes, or custom tag handlers.
+
+That makes it the safest API surface for:
+- editor tooling
+- linting
+- static inspection
+- diagnostics
+
+If you need to inspect untrusted Liquid templates without rendering them, prefer `ConvertTo-LiquidAst`.

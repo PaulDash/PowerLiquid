@@ -57,6 +57,40 @@ Instead, a host application is expected to:
 
 That design keeps PowerLiquid reusable and avoids coupling it to any particular site generator or application plugin system.
 
+## Security Model
+
+PowerLiquid does not evaluate PowerShell from template text.
+
+Template input is limited to Liquid parsing and rendering rules:
+- object lookups
+- control-flow tags
+- built-in filters
+- host-registered custom tags and filters
+
+To reduce risk from untrusted context data, `Invoke-LiquidTemplate` sanitizes the supplied context into inert Liquid-safe values before rendering. In practice that means templates can safely read:
+- scalars such as strings, numbers, booleans, and datetimes
+- hashtables / dictionaries
+- arrays and enumerables
+- note-property objects
+
+PowerLiquid intentionally does not execute script-backed properties from context objects during variable lookup.
+
+Important trust boundary:
+- custom tags and custom filters are executable host code by design
+- if a host registers a malicious script block, PowerLiquid will invoke it
+- if a host registers a trusted CLR type, PowerLiquid will read that type's public properties
+
+So the safe rule is:
+- untrusted templates and untrusted data are acceptable inputs
+- untrusted extension handlers are not
+
+If a host needs to expose strongly-typed model objects, it must opt in explicitly:
+
+```powershell
+$registry = New-LiquidExtensionRegistry
+Register-LiquidTrustedType -Registry $registry -TypeName HydeDocument
+```
+
 ### Example: Register a Custom Tag
 
 ```powershell
@@ -112,6 +146,7 @@ Detailed AST documentation lives in [docs/AstApi.md](docs/AstApi.md).
 - `New-LiquidExtensionRegistry`
 - `Register-LiquidTag`
 - `Register-LiquidFilter`
+- `Register-LiquidTrustedType`
 
 ## Repository Layout
 
