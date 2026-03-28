@@ -1,6 +1,6 @@
 ﻿@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.8.4'
+    ModuleVersion     = '0.8.5'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
@@ -39,7 +39,6 @@
 
     PrivateData = @{
         PSData = @{
-            Prerelease   = 'beta'
             Tags         = @('Liquid', 'Template', 'TemplateEngine', 'PSEdition_Core')
             ProjectURI   = 'https://github.com/PaulDash/PowerLiquid'
             LicenseURI   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE?raw=true'

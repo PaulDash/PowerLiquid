@@ -14,10 +14,12 @@ function getPublishContext {
 
     return @{
         ModuleRoot    = $moduleRoot
+        ModuleName    = $manifest.RootModule -replace '\.psm1$', ''
         ManifestPath  = $manifestPath
         Manifest      = $manifest
         TempRoot      = $tempRoot
         StagePath     = Join-Path -Path $tempRoot -ChildPath 'stage'
+        StageModulePath = Join-Path -Path (Join-Path -Path $tempRoot -ChildPath 'stage') -ChildPath ($manifest.RootModule -replace '\.psm1$', '')
         RepoPath      = Join-Path -Path $tempRoot -ChildPath 'repo'
         ShareName     = 'PowerLiquidLocalRepo'
         RepositoryName = 'PowerLiquidLocal'
@@ -32,7 +34,7 @@ function initializePublishDirectories {
         [hashtable]$Context
     )
 
-    foreach ($path in @($Context.TempRoot, $Context.StagePath, $Context.RepoPath)) {
+    foreach ($path in @($Context.TempRoot, $Context.StagePath, $Context.StageModulePath, $Context.RepoPath)) {
         if (-not (Test-Path -LiteralPath $path -PathType Container)) {
             New-Item -ItemType Directory -Path $path -Force | Out-Null
         }
@@ -45,11 +47,11 @@ function clearStageDirectory {
         [hashtable]$Context
     )
 
-    if (Test-Path -LiteralPath $Context.StagePath -PathType Container) {
-        Get-ChildItem -LiteralPath $Context.StagePath -Force -ErrorAction SilentlyContinue |
+    if (Test-Path -LiteralPath $Context.StageModulePath -PathType Container) {
+        Get-ChildItem -LiteralPath $Context.StageModulePath -Force -ErrorAction SilentlyContinue |
             Remove-Item -Recurse -Force
     } else {
-        New-Item -ItemType Directory -Path $Context.StagePath -Force | Out-Null
+        New-Item -ItemType Directory -Path $Context.StageModulePath -Force | Out-Null
     }
 }
 
@@ -59,11 +61,13 @@ function stageManifestFiles {
         [hashtable]$Context
     )
 
+    initializePublishDirectories -Context $Context
     clearStageDirectory -Context $Context
 
+    $stagedFiles = New-Object System.Collections.ArrayList
     foreach ($relativePath in $Context.Manifest.FileList) {
         $sourcePath = Join-Path -Path $Context.ModuleRoot -ChildPath $relativePath
-        $destinationPath = Join-Path -Path $Context.StagePath -ChildPath $relativePath
+        $destinationPath = Join-Path -Path $Context.StageModulePath -ChildPath $relativePath
         $destinationDirectory = Split-Path -Parent $destinationPath
 
         if (-not (Test-Path -LiteralPath $sourcePath)) {
@@ -75,6 +79,14 @@ function stageManifestFiles {
         }
 
         Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
+        [void]$stagedFiles.Add($destinationPath)
+        Write-Verbose "Staged '$relativePath' to '$destinationPath'."
+    }
+
+    Write-Host "Staged $($stagedFiles.Count) file(s) into '$($Context.StageModulePath)'." -ForegroundColor Green
+
+    foreach ($stagedFile in $stagedFiles) {
+        Write-Host "  $stagedFile"
     }
 }
 
@@ -111,7 +123,7 @@ function publishToLocalRepository {
     ensureLocalRepository -Context $Context
 
     Write-Host "Publishing staged module files to local repository '$($Context.RepositoryName)' at '$($Context.ShareLocation)'." -ForegroundColor Cyan
-    Publish-Module -Path $Context.StagePath -Repository $Context.RepositoryName -Verbose
+    Publish-Module -Path $Context.StageModulePath -Repository $Context.RepositoryName -Verbose
 }
 
 function cleanupLocalRepositoryArtifacts {
@@ -154,7 +166,7 @@ function publishToPowerShellGallery {
     }
 
     Write-Host 'Running a WhatIf publish to PowerShell Gallery first...' -ForegroundColor Cyan
-    Publish-Module -Path $Context.StagePath -NuGetApiKey $apiKey -WhatIf -Verbose
+    Publish-Module -Path $Context.StageModulePath -NuGetApiKey $apiKey -WhatIf -Verbose
 
     $confirmation = Read-Host -Prompt 'Continue with the real publish? Enter Y to continue'
     if ($confirmation -notin @('Y', 'y')) {
@@ -162,7 +174,7 @@ function publishToPowerShellGallery {
         return
     }
 
-    Publish-Module -Path $Context.StagePath -NuGetApiKey $apiKey -Verbose
+    Publish-Module -Path $Context.StageModulePath -NuGetApiKey $apiKey -Verbose
 }
 
 $context = getPublishContext
