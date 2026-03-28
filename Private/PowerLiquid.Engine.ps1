@@ -1,8 +1,21 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+<#
+.SYNOPSIS
+Creates a Liquid extension registry.
+.DESCRIPTION
+Creates the registry object used to register host-provided custom tags and filters.
+PowerLiquid keeps extensions separate by dialect so a host can opt in to different
+behavior for core Liquid and Jekyll-style Liquid without loading plugins directly.
+.OUTPUTS
+System.Collections.Hashtable
+.EXAMPLE
+$registry = New-LiquidExtensionRegistry
+#>
 function New-LiquidExtensionRegistry {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param()
 
     # Each dialect keeps separate custom tags and filters so extensions can stay dialect-specific.
@@ -20,6 +33,24 @@ function New-LiquidExtensionRegistry {
     }
 }
 
+<#
+.SYNOPSIS
+Registers a custom Liquid tag.
+.DESCRIPTION
+Adds a host-provided tag handler to an extension registry for a specific dialect.
+The handler is later invoked by Invoke-LiquidTemplate when the parser encounters
+the matching tag name.
+.PARAMETER Registry
+The extension registry created by New-LiquidExtensionRegistry.
+.PARAMETER Dialect
+The dialect whose tag table should receive the custom tag.
+.PARAMETER Name
+The tag name to register.
+.PARAMETER Handler
+The script block that will render the custom tag.
+.EXAMPLE
+Register-LiquidTag -Registry $registry -Dialect JekyllLiquid -Name seo -Handler { param($Invocation) '<title>Example</title>' }
+#>
 function Register-LiquidTag {
     [CmdletBinding()]
     param(
@@ -44,6 +75,23 @@ function Register-LiquidTag {
     $Registry.Dialects[$Dialect].Tags[$Name.ToLowerInvariant()] = $Handler
 }
 
+<#
+.SYNOPSIS
+Registers a custom Liquid filter.
+.DESCRIPTION
+Adds a host-provided filter handler to an extension registry for a specific dialect.
+Filter handlers participate in the normal Liquid filter pipeline during rendering.
+.PARAMETER Registry
+The extension registry created by New-LiquidExtensionRegistry.
+.PARAMETER Dialect
+The dialect whose filter table should receive the custom filter.
+.PARAMETER Name
+The filter name to register.
+.PARAMETER Handler
+The script block that will run for the custom filter.
+.EXAMPLE
+Register-LiquidFilter -Registry $registry -Dialect Liquid -Name shout -Handler { param($Value) ([string]$Value).ToUpperInvariant() }
+#>
 function Register-LiquidFilter {
     [CmdletBinding()]
     param(
@@ -66,6 +114,23 @@ function Register-LiquidFilter {
 
     # Custom filters join the normal filter pipeline and can be targeted to one dialect.
     $Registry.Dialects[$Dialect].Filters[$Name.ToLowerInvariant()] = $Handler
+}
+
+function assertLiquidDialect {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Dialect
+    )
+
+    # Keep dialect validation in one place so rendering and AST generation follow the same rules.
+    switch ($Dialect) {
+        'Liquid' { }
+        'JekyllLiquid' { }
+        default {
+            throw "Liquid dialect '$Dialect' is not supported yet."
+        }
+    }
 }
 
 function Split-LiquidDelimitedString {
@@ -546,6 +611,7 @@ function Parse-LiquidNodes {
 
 function Parse-LiquidTemplate {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
@@ -1393,6 +1459,7 @@ function ConvertTo-LiquidEnumerable {
 
 function ConvertFrom-LiquidNodes {
     [CmdletBinding()]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory = $true)]
         [object[]]$Nodes,
@@ -1499,8 +1566,96 @@ function ConvertFrom-LiquidNodes {
     return $builder.ToString()
 }
 
+<#
+.SYNOPSIS
+Parses a Liquid template into an abstract syntax tree.
+.DESCRIPTION
+Parses a Liquid template and returns a documented AST object that can be used by
+tooling, diagnostics, or host applications that need to inspect Liquid syntax
+without rendering it immediately.
+
+The returned AST root contains the selected dialect and the parsed node tree.
+Optionally, the original token stream can also be included for debugging or tooling.
+.PARAMETER Template
+The Liquid template source to parse.
+.PARAMETER Dialect
+The Liquid dialect to validate against.
+.PARAMETER Registry
+The extension registry used to recognize host-provided tags and filters while parsing.
+.PARAMETER IncludeTokens
+Includes the tokenizer output alongside the AST node tree.
+.OUTPUTS
+PowerLiquid.Ast
+.EXAMPLE
+$ast = ConvertTo-LiquidAst -Template '{% if page.title %}{{ page.title }}{% endif %}' -Dialect JekyllLiquid
+.EXAMPLE
+$ast = ConvertTo-LiquidAst -Template '{{ user.name }}' -IncludeTokens
+#>
+function ConvertTo-LiquidAst {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Template,
+
+        [string]$Dialect = 'Liquid',
+
+        [hashtable]$Registry = (New-LiquidExtensionRegistry),
+
+        [switch]$IncludeTokens
+    )
+
+    assertLiquidDialect -Dialect $Dialect
+
+    # Tokenize first so the AST API can optionally return both the raw token stream and the nested node tree.
+    $tokens = ConvertTo-LiquidTokens -Template $Template
+    $index = 0
+    $nodes = Parse-LiquidNodes -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+
+    # Expose a stable root object so hosts can rely on one entry shape instead of a raw node array.
+    $ast = [pscustomobject]@{
+        PSTypeName = 'PowerLiquid.Ast'
+        Dialect    = $Dialect
+        Nodes      = @($nodes)
+    }
+
+    if ($IncludeTokens) {
+        Add-Member -InputObject $ast -MemberType NoteProperty -Name Tokens -Value @($tokens)
+    }
+
+    return $ast
+}
+
+<#
+.SYNOPSIS
+Renders a Liquid template.
+.DESCRIPTION
+Parses and renders a Liquid template against a supplied context hashtable.
+PowerLiquid supports multiple dialects and host-provided extension registries
+for custom tags and filters.
+.PARAMETER Template
+The Liquid template source to render.
+.PARAMETER Context
+The root variable scope used during rendering.
+.PARAMETER Dialect
+The Liquid dialect to render with.
+.PARAMETER IncludeRoot
+The base path used when resolving include files.
+.PARAMETER IncludeStack
+The current include stack, primarily used internally for recursion detection.
+.PARAMETER Registry
+The extension registry containing custom tags and filters.
+.OUTPUTS
+System.String
+.EXAMPLE
+Invoke-LiquidTemplate -Template 'Hello {{ user.name }}' -Context @{ user = @{ name = 'Paul' } }
+.EXAMPLE
+Invoke-LiquidTemplate -Template '{% include card.html %}' -Context @{} -Dialect JekyllLiquid -IncludeRoot .\_includes
+#>
 function Invoke-LiquidTemplate {
     [CmdletBinding()]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
@@ -1518,18 +1673,9 @@ function Invoke-LiquidTemplate {
         [hashtable]$Registry = (New-LiquidExtensionRegistry)
     )
 
-    # Dialect is the forward-looking switch point for future Liquid family variants.
-    switch ($Dialect) {
-        'Liquid' { }
-        'JekyllLiquid' { }
-        default {
-            throw "Liquid dialect '$Dialect' is not supported yet."
-        }
-    }
+    assertLiquidDialect -Dialect $Dialect
 
     $runtime = New-LiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -IncludeStack $IncludeStack -Registry $Registry
-    $nodes = Parse-LiquidTemplate -Template $Template -Registry $Registry
-    return ConvertFrom-LiquidNodes -Nodes $nodes -Runtime $runtime
+    $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
+    return ConvertFrom-LiquidNodes -Nodes $ast.Nodes -Runtime $runtime
 }
-
-Export-ModuleMember -Function Invoke-LiquidTemplate, New-LiquidExtensionRegistry, Register-LiquidTag, Register-LiquidFilter

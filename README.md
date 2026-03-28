@@ -12,6 +12,7 @@ PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rende
 ## Current Features
 
 - Liquid template tokenization
+- AST generation through `ConvertTo-LiquidAst`
 - object output with filter pipelines
 - control-flow tags such as `if`, `elsif`, `else`, `unless`, and `for`
 - `assign` and `capture`
@@ -86,8 +87,27 @@ Register-LiquidFilter -Registry $registry -Dialect Liquid -Name shout -Handler {
 Invoke-LiquidTemplate -Template '{{ "hello" | shout }}' -Context @{} -Registry $registry
 ```
 
+## AST API
+
+PowerLiquid also exposes a parse-first API:
+
+```powershell
+Import-Module .\PowerLiquid.psd1
+
+$ast = ConvertTo-LiquidAst -Template '{% if page.title %}{{ page.title }}{% endif %}' -Dialect JekyllLiquid
+$ast.Nodes
+```
+
+The AST root is returned as a `PowerLiquid.Ast` object with:
+- `Dialect`
+- `Nodes`
+- optional `Tokens` when `-IncludeTokens` is used
+
+Detailed AST documentation lives in [docs/AstApi.md](docs/AstApi.md).
+
 ## Public API
 
+- `ConvertTo-LiquidAst`
 - `Invoke-LiquidTemplate`
 - `New-LiquidExtensionRegistry`
 - `Register-LiquidTag`

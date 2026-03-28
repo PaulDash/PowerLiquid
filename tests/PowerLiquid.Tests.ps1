@@ -7,9 +7,20 @@ Describe 'PowerLiquid module' {
 
     It 'exports the expected public commands' {
         (Get-Command Invoke-LiquidTemplate -ErrorAction Stop).Name | Should -Be 'Invoke-LiquidTemplate'
+        (Get-Command ConvertTo-LiquidAst -ErrorAction Stop).Name | Should -Be 'ConvertTo-LiquidAst'
         (Get-Command New-LiquidExtensionRegistry -ErrorAction Stop).Name | Should -Be 'New-LiquidExtensionRegistry'
         (Get-Command Register-LiquidTag -ErrorAction Stop).Name | Should -Be 'Register-LiquidTag'
         (Get-Command Register-LiquidFilter -ErrorAction Stop).Name | Should -Be 'Register-LiquidFilter'
+    }
+
+    It 'parses templates into a documented AST root object' {
+        $ast = ConvertTo-LiquidAst -Template '{% if page.title %}{{ page.title }}{% endif %}' -Dialect JekyllLiquid -IncludeTokens
+
+        $ast.PSTypeNames | Should -Contain 'PowerLiquid.Ast'
+        $ast.Dialect | Should -Be 'JekyllLiquid'
+        $ast.Nodes.Count | Should -Be 1
+        $ast.Nodes[0].Type | Should -Be 'If'
+        $ast.Tokens.Count | Should -BeGreaterThan 0
     }
 
     It 'renders a basic object expression' {
