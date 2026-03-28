@@ -1,22 +1,5 @@
 # TODO
 
-## Publishing Notes
-
-PowerLiquid is structured like a normal gallery module:
-
-- manifest at the repo root
-- root loader module
-- private implementation files
-- documentation folder
-- tests folder
-
-Before first publication, the remaining release work is mostly administrative:
-
-- add comment-based help and platyPS help output
-- decide the first gallery versioning policy
-- add CI for tests and ScriptAnalyzer
-- publish help and examples
-
 ## Improvements
 
 ### Parser and AST
