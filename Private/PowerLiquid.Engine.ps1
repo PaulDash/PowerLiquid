@@ -152,7 +152,7 @@ function Register-LiquidTrustedType {
     [void]$Registry.TrustedTypes.Add($TypeName)
 }
 
-function assertLiquidDialect {
+function AssertLiquidDialect {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -169,7 +169,7 @@ function assertLiquidDialect {
     }
 }
 
-function testLiquidTrustedType {
+function TestLiquidTrustedType {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -186,7 +186,7 @@ function testLiquidTrustedType {
     return ($Registry.TrustedTypes.Contains($type.FullName) -or $Registry.TrustedTypes.Contains($type.Name))
 }
 
-function convertToLiquidSafeScalar {
+function ConvertToLiquidSafeScalar {
     [CmdletBinding()]
     param(
         $Value
@@ -220,7 +220,7 @@ function convertToLiquidSafeScalar {
     return $null
 }
 
-function convertToLiquidSafeValue {
+function ConvertToLiquidSafeValue {
     [CmdletBinding()]
     param(
         $Value,
@@ -229,7 +229,7 @@ function convertToLiquidSafeValue {
     )
 
     # Reduce host-provided data to inert structures so template evaluation cannot trigger arbitrary property getters.
-    $scalarValue = convertToLiquidSafeScalar -Value $Value
+    $scalarValue = ConvertToLiquidSafeScalar -Value $Value
     if ($null -ne $scalarValue -or $null -eq $Value) {
         return $scalarValue
     }
@@ -237,16 +237,16 @@ function convertToLiquidSafeValue {
     if ($Value -is [System.Collections.IDictionary]) {
         $safeTable = @{}
         foreach ($key in $Value.Keys) {
-            $safeTable[[string]$key] = convertToLiquidSafeValue -Value $Value[$key] -Registry $Registry
+            $safeTable[[string]$key] = ConvertToLiquidSafeValue -Value $Value[$key] -Registry $Registry
         }
 
         return $safeTable
     }
 
-    if (testLiquidTrustedType -Value $Value -Registry $Registry) {
+    if (TestLiquidTrustedType -Value $Value -Registry $Registry) {
         $safeTable = @{}
         foreach ($property in @($Value.PSObject.Properties | Where-Object { $_.MemberType -in @('Property', 'NoteProperty') })) {
-            $safeTable[[string]$property.Name] = convertToLiquidSafeValue -Value $property.Value -Registry $Registry
+            $safeTable[[string]$property.Name] = ConvertToLiquidSafeValue -Value $property.Value -Registry $Registry
         }
 
         return [pscustomobject]$safeTable
@@ -255,7 +255,7 @@ function convertToLiquidSafeValue {
     if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
         $safeItems = New-Object System.Collections.ArrayList
         foreach ($item in $Value) {
-            [void]$safeItems.Add((convertToLiquidSafeValue -Value $item -Registry $Registry))
+            [void]$safeItems.Add((ConvertToLiquidSafeValue -Value $item -Registry $Registry))
         }
 
         return ,@($safeItems.ToArray())
@@ -269,7 +269,7 @@ function convertToLiquidSafeValue {
 
         $safeTable = @{}
         foreach ($property in $noteProperties) {
-            $safeTable[[string]$property.Name] = convertToLiquidSafeValue -Value $property.Value -Registry $Registry
+            $safeTable[[string]$property.Name] = ConvertToLiquidSafeValue -Value $property.Value -Registry $Registry
         }
 
         return $safeTable
@@ -328,7 +328,7 @@ function Split-LiquidDelimitedString {
     return ,$segments.ToArray()
 }
 
-function ConvertTo-LiquidTokens {
+function ConvertTo-LiquidToken {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -408,7 +408,7 @@ function Get-LiquidTagParts {
     }
 }
 
-function Split-LiquidWhitespaceTokens {
+function Split-LiquidWhitespaceToken {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -433,7 +433,7 @@ function Parse-LiquidIncludeMarkup {
     )
 
     # Include accepts a target plus optional key=value parameters.
-    $tokens = Split-LiquidWhitespaceTokens -InputText $Markup
+    $tokens = Split-LiquidWhitespaceToken -InputText $Markup
     if ($tokens.Count -eq 0) {
         throw "Liquid include tag is invalid: '$Markup'."
     }
@@ -474,7 +474,7 @@ function Parse-LiquidForMarkup {
     }
 }
 
-function Parse-LiquidNodes {
+function Parse-LiquidNode {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -537,7 +537,7 @@ function Parse-LiquidNodes {
 
                 $captureName = $matches[1]
                 $Index.Value++
-                $bodyNodes = Parse-LiquidNodes -Tokens $Tokens -Index $Index -EndTags @('endcapture') -Registry $Registry
+                $bodyNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endcapture') -Registry $Registry
                 if ($Index.Value -ge $Tokens.Count) {
                     throw "Liquid capture tag '$captureName' is missing endcapture."
                 }
@@ -556,7 +556,7 @@ function Parse-LiquidNodes {
                 $Index.Value++
 
                 while ($true) {
-                    $branchNodes = Parse-LiquidNodes -Tokens $Tokens -Index $Index -EndTags @('elsif', 'else', 'endif') -Registry $Registry
+                    $branchNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('elsif', 'else', 'endif') -Registry $Registry
                     [void]$branches.Add([pscustomobject]@{
                         Condition = $condition
                         Nodes     = $branchNodes
@@ -575,7 +575,7 @@ function Parse-LiquidNodes {
                         }
                         'else' {
                             $Index.Value++
-                            $elseNodes = Parse-LiquidNodes -Tokens $Tokens -Index $Index -EndTags @('endif') -Registry $Registry
+                            $elseNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endif') -Registry $Registry
                             if ($Index.Value -ge $Tokens.Count) {
                                 throw "Liquid if tag is missing endif."
                             }
@@ -609,7 +609,7 @@ function Parse-LiquidNodes {
                 # Parse for blocks with an optional else branch for empty collections.
                 $forMarkup = Parse-LiquidForMarkup -Markup $tagParts.Markup
                 $Index.Value++
-                $bodyNodes = Parse-LiquidNodes -Tokens $Tokens -Index $Index -EndTags @('else', 'endfor') -Registry $Registry
+                $bodyNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endfor') -Registry $Registry
                 if ($Index.Value -ge $Tokens.Count) {
                     throw "Liquid for tag is missing endfor."
                 }
@@ -618,7 +618,7 @@ function Parse-LiquidNodes {
                 $elseNodes = @()
                 if ($nextTag.Name -eq 'else') {
                     $Index.Value++
-                    $elseNodes = Parse-LiquidNodes -Tokens $Tokens -Index $Index -EndTags @('endfor') -Registry $Registry
+                    $elseNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endfor') -Registry $Registry
                     if ($Index.Value -ge $Tokens.Count) {
                         throw "Liquid for tag is missing endfor."
                     }
@@ -637,7 +637,7 @@ function Parse-LiquidNodes {
                 # Unless behaves like an inverted if with an optional else branch.
                 $condition = $tagParts.Markup
                 $Index.Value++
-                $bodyNodes = Parse-LiquidNodes -Tokens $Tokens -Index $Index -EndTags @('else', 'endunless') -Registry $Registry
+                $bodyNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endunless') -Registry $Registry
                 if ($Index.Value -ge $Tokens.Count) {
                     throw "Liquid unless tag is missing endunless."
                 }
@@ -646,7 +646,7 @@ function Parse-LiquidNodes {
                 $elseNodes = @()
                 if ($nextTag.Name -eq 'else') {
                     $Index.Value++
-                    $elseNodes = Parse-LiquidNodes -Tokens $Tokens -Index $Index -EndTags @('endunless') -Registry $Registry
+                    $elseNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endunless') -Registry $Registry
                     if ($Index.Value -ge $Tokens.Count) {
                         throw "Liquid unless tag is missing endunless."
                     }
@@ -767,9 +767,9 @@ function Parse-LiquidTemplate {
     )
 
     # Parsing starts by tokenizing the template, then building nested nodes from those tokens.
-    $tokens = ConvertTo-LiquidTokens -Template $Template
+    $tokens = ConvertTo-LiquidToken -Template $Template
     $index = 0
-    return Parse-LiquidNodes -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    return Parse-LiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
 }
 
 function Get-LiquidRuntimeValue {
@@ -1339,7 +1339,7 @@ function Resolve-LiquidExpression {
     return $value
 }
 
-function Split-LiquidConditionTokens {
+function Split-LiquidConditionToken {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -1406,7 +1406,7 @@ function Invoke-LiquidComparison {
     }
 }
 
-function Invoke-LiquidConditionTokens {
+function Invoke-LiquidConditionToken {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -1422,12 +1422,12 @@ function Invoke-LiquidConditionTokens {
             'and' {
                 $leftTokens = if ($index -gt 0) { $Tokens[0..($index - 1)] } else { @() }
                 $rightTokens = if ($index + 1 -lt $Tokens.Count) { $Tokens[($index + 1)..($Tokens.Count - 1)] } else { @() }
-                return ((Invoke-LiquidConditionTokens -Tokens $leftTokens -Runtime $Runtime) -and (Invoke-LiquidConditionTokens -Tokens $rightTokens -Runtime $Runtime))
+                return ((Invoke-LiquidConditionToken -Tokens $leftTokens -Runtime $Runtime) -and (Invoke-LiquidConditionToken -Tokens $rightTokens -Runtime $Runtime))
             }
             'or' {
                 $leftTokens = if ($index -gt 0) { $Tokens[0..($index - 1)] } else { @() }
                 $rightTokens = if ($index + 1 -lt $Tokens.Count) { $Tokens[($index + 1)..($Tokens.Count - 1)] } else { @() }
-                return ((Invoke-LiquidConditionTokens -Tokens $leftTokens -Runtime $Runtime) -or (Invoke-LiquidConditionTokens -Tokens $rightTokens -Runtime $Runtime))
+                return ((Invoke-LiquidConditionToken -Tokens $leftTokens -Runtime $Runtime) -or (Invoke-LiquidConditionToken -Tokens $rightTokens -Runtime $Runtime))
             }
         }
     }
@@ -1446,8 +1446,8 @@ function Invoke-LiquidCondition {
     )
 
     # Condition evaluation is split into tokenization and recursive logical/comparison evaluation.
-    $tokens = Split-LiquidConditionTokens -Condition $Condition
-    return Invoke-LiquidConditionTokens -Tokens $tokens -Runtime $Runtime
+    $tokens = Split-LiquidConditionToken -Condition $Condition
+    return Invoke-LiquidConditionToken -Tokens $tokens -Runtime $Runtime
 }
 
 function New-LiquidRuntime {
@@ -1468,7 +1468,7 @@ function New-LiquidRuntime {
 
     # The runtime keeps a scope stack so assign/capture can add temporary variables during rendering.
     $scopes = New-Object System.Collections.ArrayList
-    [void]$scopes.Add((convertToLiquidSafeValue -Value $Context -Registry $Registry))
+    [void]$scopes.Add((ConvertToLiquidSafeValue -Value $Context -Registry $Registry))
 
     return @{
         Scopes       = $scopes
@@ -1490,7 +1490,7 @@ function Add-LiquidScope {
     )
 
     # New scopes are pushed to the front so lookups see the most local variables first.
-    $Runtime.Scopes.Insert(0, (convertToLiquidSafeValue -Value $Scope -Registry $Runtime.Registry))
+    $Runtime.Scopes.Insert(0, (ConvertToLiquidSafeValue -Value $Scope -Registry $Runtime.Registry))
 }
 
 function Remove-LiquidScope {
@@ -1617,7 +1617,7 @@ function ConvertTo-LiquidEnumerable {
     return @($Value)
 }
 
-function ConvertFrom-LiquidNodes {
+function ConvertFrom-LiquidNode {
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -1645,35 +1645,35 @@ function ConvertFrom-LiquidNodes {
                 $Runtime.Scopes[0][$node.Name] = $value
             }
             'Capture' {
-                $capturedValue = ConvertFrom-LiquidNodes -Nodes $node.Nodes -Runtime $Runtime
+                $capturedValue = ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime
                 $Runtime.Scopes[0][$node.Name] = $capturedValue
             }
             'If' {
                 $rendered = $false
                 foreach ($branch in $node.Branches) {
                     if (Invoke-LiquidCondition -Condition $branch.Condition -Runtime $Runtime) {
-                        [void]$builder.Append((ConvertFrom-LiquidNodes -Nodes $branch.Nodes -Runtime $Runtime))
+                        [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $branch.Nodes -Runtime $Runtime))
                         $rendered = $true
                         break
                     }
                 }
 
                 if (-not $rendered -and $node.Else.Count -gt 0) {
-                    [void]$builder.Append((ConvertFrom-LiquidNodes -Nodes $node.Else -Runtime $Runtime))
+                    [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime))
                 }
             }
             'Unless' {
                 if (-not (Invoke-LiquidCondition -Condition $node.Condition -Runtime $Runtime)) {
-                    [void]$builder.Append((ConvertFrom-LiquidNodes -Nodes $node.Nodes -Runtime $Runtime))
+                    [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime))
                 } elseif ($node.Else.Count -gt 0) {
-                    [void]$builder.Append((ConvertFrom-LiquidNodes -Nodes $node.Else -Runtime $Runtime))
+                    [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime))
                 }
             }
             'For' {
                 $items = @(ConvertTo-LiquidEnumerable -Value (Resolve-LiquidExpression -Expression $node.CollectionExpression -Runtime $Runtime))
                 if ($items.Count -eq 0) {
                     if ($node.Else.Count -gt 0) {
-                        [void]$builder.Append((ConvertFrom-LiquidNodes -Nodes $node.Else -Runtime $Runtime))
+                        [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime))
                     }
                     continue
                 }
@@ -1697,7 +1697,7 @@ function ConvertFrom-LiquidNodes {
 
                     Add-LiquidScope -Runtime $Runtime -Scope $loopScope
                     try {
-                        [void]$builder.Append((ConvertFrom-LiquidNodes -Nodes $node.Nodes -Runtime $Runtime))
+                        [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime))
                     } finally {
                         Remove-LiquidScope -Runtime $Runtime
                     }
@@ -1766,12 +1766,12 @@ function ConvertTo-LiquidAst {
         [switch]$IncludeTokens
     )
 
-    assertLiquidDialect -Dialect $Dialect
+    AssertLiquidDialect -Dialect $Dialect
 
     # Tokenize first so the AST API can optionally return both the raw token stream and the nested node tree.
-    $tokens = ConvertTo-LiquidTokens -Template $Template
+    $tokens = ConvertTo-LiquidToken -Template $Template
     $index = 0
-    $nodes = Parse-LiquidNodes -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    $nodes = Parse-LiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
 
     # Expose a stable root object so hosts can rely on one entry shape instead of a raw node array.
     $ast = [pscustomobject]@{
@@ -1842,9 +1842,10 @@ function Invoke-LiquidTemplate {
         [hashtable]$Registry = (New-LiquidExtensionRegistry)
     )
 
-    assertLiquidDialect -Dialect $Dialect
+    AssertLiquidDialect -Dialect $Dialect
 
     $runtime = New-LiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -IncludeStack $IncludeStack -Registry $Registry
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
-    return ConvertFrom-LiquidNodes -Nodes $ast.Nodes -Runtime $runtime
+    return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+

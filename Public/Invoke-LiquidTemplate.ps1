@@ -53,7 +53,7 @@ function Invoke-LiquidTemplate {
         [hashtable]$Registry = (New-LiquidExtensionRegistry)
     )
 
-    assertLiquidDialect -Dialect $Dialect
+    AssertLiquidDialect -Dialect $Dialect
 
     Write-Verbose "Rendering template with dialect '$Dialect'"
 
@@ -63,8 +63,9 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     Write-Verbose "Parsed AST with $($ast.Nodes.Count) nodes"
 
-    $result = ConvertFrom-LiquidNodes -Nodes $ast.Nodes -Runtime $runtime
+    $result = ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
     Write-Verbose "Rendered template successfully"
 
     return $result
 }
+

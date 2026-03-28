@@ -1,6 +1,6 @@
-﻿@{
+@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.8.0'
+    ModuleVersion     = '0.8.1'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Wojcicki-Jarocki'
     CompanyName       = 'Paul Dash'
@@ -33,8 +33,9 @@
             Tags         = @('Liquid', 'Templating')
             ProjectUri   = 'https://github.com/PaulDash/PowerLiquid'
             LicenseUri   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE'
-            ReleaseNotes = 'First stable release with contribution guidelines, CHANGELOG, and reorganized public functions.'
+            ReleaseNotes = 'Renamed private engine helpers to consistent PascalCase singular naming.'
         }
     }
 }
+
 
