@@ -824,7 +824,7 @@ function Get-LiquidRuntimeValue {
     if ($Value -is [System.Collections.IDictionary]) {
         foreach ($key in $Value.Keys) {
             if ([string]$key -ieq $MemberName) {
-                Write-Output -NoEnumerate $Value[$key]
+                Write-Output -InputObject $Value[$key] -NoEnumerate
                 return
             }
         }
@@ -837,7 +837,7 @@ function Get-LiquidRuntimeValue {
             'size' { return $Value.Count }
             'first' {
                 if ($Value.Count -gt 0) {
-                    Write-Output -NoEnumerate $Value[0]
+                    Write-Output -InputObject $Value[0] -NoEnumerate
                     return
                 }
 
@@ -845,7 +845,7 @@ function Get-LiquidRuntimeValue {
             }
             'last' {
                 if ($Value.Count -gt 0) {
-                    Write-Output -NoEnumerate $Value[$Value.Count - 1]
+                    Write-Output -InputObject $Value[$Value.Count - 1] -NoEnumerate
                     return
                 }
 
@@ -855,7 +855,7 @@ function Get-LiquidRuntimeValue {
                 if ($MemberName -match '^\d+$') {
                     $index = [int]$MemberName
                     if ($index -lt $Value.Count) {
-                        Write-Output -NoEnumerate $Value[$index]
+                        Write-Output -InputObject $Value[$index] -NoEnumerate
                         return
                     }
 
@@ -877,7 +877,7 @@ function Get-LiquidRuntimeValue {
         Where-Object { ($_.MemberType -eq 'NoteProperty') -and ($_.Name -ieq $MemberName) } |
         Select-Object -First 1
     if ($null -ne $property) {
-        Write-Output -NoEnumerate $property.Value
+        Write-Output -InputObject $property.Value -NoEnumerate
         return
     }
 
@@ -1007,7 +1007,7 @@ function Resolve-LiquidVariable {
                 ($value -isnot [string]) -and
                 ($value -isnot [System.Collections.IDictionary]) -and
                 (@($value).Count -eq 1)) {
-                Write-Output -NoEnumerate $value
+                Write-Output -InputObject $value -NoEnumerate
                 return
             }
 
