@@ -11,9 +11,9 @@ behavior for core Liquid and Jekyll-style Liquid without loading plugins directl
 .OUTPUTS
 System.Collections.Hashtable
 .EXAMPLE
-$registry = New-LiquidExtensionRegistry
+$registry = newLiquidExtensionRegistry
 #>
-function New-LiquidExtensionRegistry {
+function newLiquidExtensionRegistry {
     [CmdletBinding()]
     [OutputType([hashtable])]
     param()
@@ -42,7 +42,7 @@ Adds a host-provided tag handler to an extension registry for a specific dialect
 The handler is later invoked by Invoke-LiquidTemplate when the parser encounters
 the matching tag name.
 .PARAMETER Registry
-The extension registry created by New-LiquidExtensionRegistry.
+The extension registry created by newLiquidExtensionRegistry.
 .PARAMETER Dialect
 The dialect whose tag table should receive the custom tag.
 .PARAMETER Name
@@ -83,7 +83,7 @@ Registers a custom Liquid filter.
 Adds a host-provided filter handler to an extension registry for a specific dialect.
 Filter handlers participate in the normal Liquid filter pipeline during rendering.
 .PARAMETER Registry
-The extension registry created by New-LiquidExtensionRegistry.
+The extension registry created by newLiquidExtensionRegistry.
 .PARAMETER Dialect
 The dialect whose filter table should receive the custom filter.
 .PARAMETER Name
@@ -129,7 +129,7 @@ explicitly by registering that type as trusted.
 This keeps untrusted input safe by default while still allowing trusted host
 models, such as strongly-typed document objects, to participate in templates.
 .PARAMETER Registry
-The extension registry created by New-LiquidExtensionRegistry.
+The extension registry created by newLiquidExtensionRegistry.
 .PARAMETER TypeName
 The CLR type name to trust. Both full names and short names are matched.
 .EXAMPLE
@@ -1142,7 +1142,7 @@ function Get-LiquidCustomTag {
     return $null
 }
 
-function New-LiquidExtensionInvocation {
+function newLiquidExtensionInvocation {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -1186,7 +1186,7 @@ function Invoke-LiquidFilter {
     $dialect = if ($null -ne $Runtime -and $Runtime.ContainsKey('Dialect')) { $Runtime.Dialect } else { 'Liquid' }
     $customFilter = if ($null -ne $Runtime) { Get-LiquidCustomFilter -Name $Name -Runtime $Runtime } else { $null }
     if ($null -ne $customFilter) {
-        $invocation = New-LiquidExtensionInvocation -Runtime $Runtime
+        $invocation = newLiquidExtensionInvocation -Runtime $Runtime
         $invocation['Name'] = $Name
         $invocation['InputObject'] = $InputObject
         $invocation['Arguments'] = $Arguments
@@ -1450,7 +1450,7 @@ function Invoke-LiquidCondition {
     return Invoke-LiquidConditionToken -Tokens $tokens -Runtime $Runtime
 }
 
-function New-LiquidRuntime {
+function newLiquidRuntime {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -1475,7 +1475,7 @@ function New-LiquidRuntime {
         Dialect      = $Dialect
         IncludeRoot  = $IncludeRoot
         IncludeStack = @($IncludeStack)
-        Registry     = if ($null -ne $Registry) { $Registry } else { New-LiquidExtensionRegistry }
+        Registry     = if ($null -ne $Registry) { $Registry } else { newLiquidExtensionRegistry }
     }
 }
 
@@ -1493,7 +1493,7 @@ function Add-LiquidScope {
     $Runtime.Scopes.Insert(0, (ConvertToLiquidSafeValue -Value $Scope -Registry $Runtime.Registry))
 }
 
-function Remove-LiquidScope {
+function removeLiquidScope {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -1699,7 +1699,7 @@ function ConvertFrom-LiquidNode {
                     try {
                         [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime))
                     } finally {
-                        Remove-LiquidScope -Runtime $Runtime
+                        removeLiquidScope -Runtime $Runtime
                     }
                 }
             }
@@ -1712,7 +1712,7 @@ function ConvertFrom-LiquidNode {
                     throw "Liquid tag '$($node.Name)' is not supported in the '$($Runtime.Dialect)' dialect."
                 }
 
-                $invocation = New-LiquidExtensionInvocation -Runtime $Runtime
+                $invocation = newLiquidExtensionInvocation -Runtime $Runtime
                 $invocation['Name'] = $node.Name
                 $invocation['Markup'] = $node.Markup
                 [void]$builder.Append((ConvertTo-LiquidOutputString -Value (& $customTag $invocation)))
@@ -1761,7 +1761,7 @@ function ConvertTo-LiquidAst {
 
         [string]$Dialect = 'Liquid',
 
-        [hashtable]$Registry = (New-LiquidExtensionRegistry),
+        [hashtable]$Registry = (newLiquidExtensionRegistry),
 
         [switch]$IncludeTokens
     )
@@ -1839,14 +1839,15 @@ function Invoke-LiquidTemplate {
 
         [string[]]$IncludeStack = @(),
 
-        [hashtable]$Registry = (New-LiquidExtensionRegistry)
+        [hashtable]$Registry = (newLiquidExtensionRegistry)
     )
 
     AssertLiquidDialect -Dialect $Dialect
 
-    $runtime = New-LiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -IncludeStack $IncludeStack -Registry $Registry
+    $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -IncludeStack $IncludeStack -Registry $Registry
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
 
 

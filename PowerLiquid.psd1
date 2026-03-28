@@ -1,6 +1,6 @@
 ﻿@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.8.2'
+    ModuleVersion     = '0.8.3'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Wojcicki-Jarocki'
     CompanyName       = 'Paul Dash'
@@ -33,7 +33,7 @@
             Tags         = @('Liquid', 'Templating')
             ProjectUri   = 'https://github.com/PaulDash/PowerLiquid'
             LicenseUri   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE'
-            ReleaseNotes = 'Renamed remaining internal helpers to lower camelCase names without dashes.'
+            ReleaseNotes = 'Renamed remaining internal state-changing helpers to lower camelCase names without dashes.'
         }
     }
 }
