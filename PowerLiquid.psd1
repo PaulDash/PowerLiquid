@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.3.0'
+    ModuleVersion     = '0.3.1'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Wojcicki-Jarocki'
     CompanyName       = 'Paul Dash'
@@ -30,7 +30,7 @@
 
     PrivateData = @{
         PSData = @{
-            Tags         = @('Liquid', 'Templating', 'Jekyll', 'PowerShell')
+            Tags         = @('Liquid', 'Templating')
             ProjectUri   = 'https://github.com/PaulDash/PowerLiquid'
             LicenseUri   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE'
             ReleaseNotes = 'Added a documented AST API through ConvertTo-LiquidAst, comment-based help for public commands, and expanded documentation for tooling and host integration.'
