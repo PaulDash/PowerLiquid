@@ -66,6 +66,7 @@ Describe 'PowerLiquid module' {
 
         Register-LiquidTag -Registry $registry -Dialect JekyllLiquid -Name hello -Handler {
             param($Invocation)
+            [void]$Invocation
             return 'Hello from a host'
         }
 
@@ -84,3 +85,4 @@ Describe 'PowerLiquid module' {
         $result | Should -Be '2026'
     }
 }
+
