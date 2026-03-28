@@ -55,7 +55,16 @@ function Invoke-LiquidTemplate {
 
     assertLiquidDialect -Dialect $Dialect
 
+    Write-Verbose "Rendering template with dialect '$Dialect'"
+
     $runtime = New-LiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -IncludeStack $IncludeStack -Registry $Registry
+    Write-Verbose "Created runtime with $($Context.Count) context variables"
+
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
-    return ConvertFrom-LiquidNodes -Nodes $ast.Nodes -Runtime $runtime
+    Write-Verbose "Parsed AST with $($ast.Nodes.Count) nodes"
+
+    $result = ConvertFrom-LiquidNodes -Nodes $ast.Nodes -Runtime $runtime
+    Write-Verbose "Rendered template successfully"
+
+    return $result
 }

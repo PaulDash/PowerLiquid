@@ -30,5 +30,9 @@ function Register-LiquidTrustedType {
         $Registry.TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
     }
 
+    Write-Verbose "Registering trusted type '$TypeName' for object-property access"
+
     [void]$Registry.TrustedTypes.Add($TypeName)
+
+    Write-Verbose "Trusted type '$TypeName' registered successfully"
 }

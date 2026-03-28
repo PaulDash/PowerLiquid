@@ -36,10 +36,15 @@ function ConvertTo-LiquidAst {
 
     assertLiquidDialect -Dialect $Dialect
 
+    Write-Verbose "Parsing template to AST with dialect '$Dialect'"
+
     # Tokenize first so the AST API can optionally return both the raw token stream and the nested node tree.
     $tokens = ConvertTo-LiquidTokens -Template $Template
+    Write-Verbose "Tokenized template into $($tokens.Count) tokens"
+
     $index = 0
     $nodes = Parse-LiquidNodes -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    Write-Verbose "Parsed $($nodes.Count) AST nodes"
 
     # Expose a stable root object so hosts can rely on one entry shape instead of a raw node array.
     $ast = [pscustomobject]@{
@@ -50,7 +55,9 @@ function ConvertTo-LiquidAst {
 
     if ($IncludeTokens) {
         Add-Member -InputObject $ast -MemberType NoteProperty -Name Tokens -Value @($tokens)
+        Write-Verbose "Included token stream in AST output"
     }
 
+    Write-Verbose "AST parsing completed successfully"
     return $ast
 }

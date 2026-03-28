@@ -35,6 +35,10 @@ function Register-LiquidFilter {
         throw "Liquid dialect '$Dialect' is not supported yet."
     }
 
+    Write-Verbose "Registering custom filter '$Name' for dialect '$Dialect'"
+
     # Custom filters join the normal filter pipeline and can be targeted to one dialect.
     $Registry.Dialects[$Dialect].Filters[$Name.ToLowerInvariant()] = $Handler
+
+    Write-Verbose "Custom filter '$Name' registered successfully"
 }

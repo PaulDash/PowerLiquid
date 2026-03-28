@@ -36,6 +36,10 @@ function Register-LiquidTag {
         throw "Liquid dialect '$Dialect' is not supported yet."
     }
 
+    Write-Verbose "Registering custom tag '$Name' for dialect '$Dialect'"
+
     # Custom tags plug into the parser as single inline tags such as {% seo %}.
     $Registry.Dialects[$Dialect].Tags[$Name.ToLowerInvariant()] = $Handler
+
+    Write-Verbose "Custom tag '$Name' registered successfully"
 }

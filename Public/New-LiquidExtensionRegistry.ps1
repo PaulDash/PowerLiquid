@@ -15,8 +15,10 @@ function New-LiquidExtensionRegistry {
     [OutputType([hashtable])]
     param()
 
+    Write-Verbose "Creating new Liquid extension registry"
+
     # Each dialect keeps separate custom tags and filters so extensions can stay dialect-specific.
-    return @{
+    $registry = @{
         TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
         Dialects = @{
             Liquid = @{
@@ -29,4 +31,7 @@ function New-LiquidExtensionRegistry {
             }
         }
     }
+
+    Write-Verbose "Extension registry created with support for Liquid and JekyllLiquid dialects"
+    return $registry
 }
