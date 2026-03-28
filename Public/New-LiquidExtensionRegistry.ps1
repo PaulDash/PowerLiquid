@@ -11,9 +11,13 @@ System.Collections.Hashtable
 $registry = New-LiquidExtensionRegistry
 #>
 function New-LiquidExtensionRegistry {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
     [OutputType([hashtable])]
     param()
+
+    if (-not $PSCmdlet.ShouldProcess('Liquid extension registry', 'Create')) {
+        return
+    }
 
     Write-Verbose "Creating new Liquid extension registry"
 
