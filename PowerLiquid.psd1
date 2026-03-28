@@ -42,8 +42,8 @@
             Prerelease   = 'beta'
             Tags         = @('Liquid', 'Template', 'TemplateEngine', 'PSEdition_Core')
             ProjectURI   = 'https://github.com/PaulDash/PowerLiquid'
-            LicenseURI   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE'
-            IconURI      = 'https://github.com/PaulDash/PowerLiquid/blob/main/RES/Icon_85x85.png'
+            LicenseURI   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE?raw=true'
+            IconURI      = 'https://github.com/PaulDash/PowerLiquid/blob/main/res/Icon_85x85.png?raw=true'
             ReleaseNotes = 'Updated manifest file metadata to reflect the publishable module structure.'
         }
     }
