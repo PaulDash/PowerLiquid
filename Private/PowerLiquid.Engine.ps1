@@ -54,6 +54,7 @@ Register-LiquidTag -Registry $registry -Dialect JekyllLiquid -Name seo -Handler 
 #>
 function Register-LiquidTag {
     [CmdletBinding()]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Registry,
@@ -95,6 +96,7 @@ Register-LiquidFilter -Registry $registry -Dialect Liquid -Name shout -Handler {
 #>
 function Register-LiquidFilter {
     [CmdletBinding()]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Registry,
@@ -137,6 +139,7 @@ Register-LiquidTrustedType -Registry $registry -TypeName HydeDocument
 #>
 function Register-LiquidTrustedType {
     [CmdletBinding()]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Registry,
@@ -154,6 +157,7 @@ function Register-LiquidTrustedType {
 
 function AssertLiquidDialect {
     [CmdletBinding()]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Dialect
@@ -188,6 +192,7 @@ function TestLiquidTrustedType {
 
 function ConvertToLiquidSafeScalar {
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         $Value
     )
@@ -222,6 +227,7 @@ function ConvertToLiquidSafeScalar {
 
 function ConvertToLiquidSafeValue {
     [CmdletBinding()]
+    [OutputType([hashtable], [object[]], [pscustomobject], [string], [char], [bool], [byte], [sbyte], [int16], [uint16], [int32], [uint32], [int64], [uint64], [single], [double], [decimal], [datetime], [timespan], [guid])]
     param(
         $Value,
 
@@ -281,6 +287,7 @@ function ConvertToLiquidSafeValue {
 
 function Split-LiquidDelimitedString {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
@@ -330,6 +337,7 @@ function Split-LiquidDelimitedString {
 
 function ConvertTo-LiquidToken {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
@@ -387,6 +395,7 @@ function ConvertTo-LiquidToken {
 
 function getLiquidTagPart {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Markup
@@ -410,6 +419,7 @@ function getLiquidTagPart {
 
 function Split-LiquidWhitespaceToken {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
@@ -427,6 +437,7 @@ function Split-LiquidWhitespaceToken {
 
 function parseLiquidIncludeMarkup {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Markup
@@ -458,6 +469,7 @@ function parseLiquidIncludeMarkup {
 
 function parseLiquidForMarkup {
     [CmdletBinding()]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Markup
@@ -476,6 +488,7 @@ function parseLiquidForMarkup {
 
 function parseLiquidNode {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [object[]]$Tokens,
@@ -774,6 +787,7 @@ function parseLiquidTemplate {
 
 function Get-LiquidRuntimeValue {
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         [Parameter(Mandatory = $true)]
         $Value,
@@ -886,6 +900,7 @@ function Get-LiquidRuntimeValue {
 
 function Resolve-LiquidVariable {
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Runtime,
@@ -1020,6 +1035,7 @@ function Resolve-LiquidVariable {
 
 function ConvertTo-LiquidLiteralValue {
     [CmdletBinding()]
+    [OutputType([string], [bool], [int32], [double])]
     param(
         [Parameter(Mandatory = $true)]
         [AllowEmptyString()]
@@ -1056,6 +1072,7 @@ function ConvertTo-LiquidLiteralValue {
 
 function ConvertTo-LiquidOutputString {
     [CmdletBinding()]
+    [OutputType([string])]
     param(
         $Value
     )
@@ -1074,6 +1091,7 @@ function ConvertTo-LiquidOutputString {
 
 function Test-LiquidTruthy {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         $Value
     )
@@ -1084,6 +1102,7 @@ function Test-LiquidTruthy {
 
 function getLiquidDialectExtension {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [hashtable]$Registry,
         [Parameter(Mandatory = $true)]
@@ -1108,6 +1127,7 @@ function getLiquidDialectExtension {
 
 function Get-LiquidCustomFilter {
     [CmdletBinding()]
+    [OutputType([scriptblock])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -1126,6 +1146,7 @@ function Get-LiquidCustomFilter {
 
 function Get-LiquidCustomTag {
     [CmdletBinding()]
+    [OutputType([scriptblock])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -1144,6 +1165,7 @@ function Get-LiquidCustomTag {
 
 function newLiquidExtensionInvocation {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Runtime
@@ -1171,6 +1193,7 @@ function newLiquidExtensionInvocation {
 
 function Invoke-LiquidFilter {
     [CmdletBinding()]
+    [OutputType([string], [object[]], [hashtable], [pscustomobject], [bool], [int32], [double])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Name,
@@ -1300,6 +1323,7 @@ function Invoke-LiquidFilter {
 
 function Resolve-LiquidExpression {
     [CmdletBinding()]
+    [OutputType([object])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Expression,
@@ -1341,6 +1365,7 @@ function Resolve-LiquidExpression {
 
 function Split-LiquidConditionToken {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Condition
@@ -1357,6 +1382,7 @@ function Split-LiquidConditionToken {
 
 function Invoke-LiquidComparison {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
         [string[]]$Tokens,
@@ -1408,6 +1434,7 @@ function Invoke-LiquidComparison {
 
 function Invoke-LiquidConditionToken {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
         [string[]]$Tokens,
@@ -1437,6 +1464,7 @@ function Invoke-LiquidConditionToken {
 
 function Invoke-LiquidCondition {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$Condition,
@@ -1452,6 +1480,7 @@ function Invoke-LiquidCondition {
 
 function newLiquidRuntime {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Context,
@@ -1481,6 +1510,7 @@ function newLiquidRuntime {
 
 function Add-LiquidScope {
     [CmdletBinding()]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Runtime,
@@ -1495,6 +1525,7 @@ function Add-LiquidScope {
 
 function removeLiquidScope {
     [CmdletBinding()]
+    [OutputType([void])]
     param(
         [Parameter(Mandatory = $true)]
         [hashtable]$Runtime
@@ -1508,6 +1539,7 @@ function removeLiquidScope {
 
 function Resolve-LiquidIncludePath {
     [CmdletBinding()]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$IncludeTarget,
@@ -1540,6 +1572,7 @@ function Resolve-LiquidIncludePath {
 
 function Invoke-LiquidInclude {
     [CmdletBinding()]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory = $true)]
         $Node,
@@ -1593,6 +1626,7 @@ function Invoke-LiquidInclude {
 
 function ConvertTo-LiquidEnumerable {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         $Value
     )
