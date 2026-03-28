@@ -101,7 +101,7 @@ them, prefer the AST API over the render API.
 ```powershell
 Import-Module .\PowerLiquid.psd1
 
-$template = @'
+`$template = @'
 {% if page.title %}
   <h1>{{ page.title }}</h1>
 {% else %}
@@ -109,14 +109,14 @@ $template = @'
 {% endif %}
 '@
 
-$ast = ConvertTo-LiquidAst -Template $template -Dialect JekyllLiquid -IncludeTokens
-$ast.Nodes
+`$ast = ConvertTo-LiquidAst -Template `$template -Dialect JekyllLiquid -IncludeTokens
+`$ast.Nodes
 ```
 
 ### Example 2: Use the AST for diagnostics
 ```powershell
-$ast = ConvertTo-LiquidAst -Template '{{ user.name }}'
-$ast.Nodes | Format-Table Type, Expression
+`$ast = ConvertTo-LiquidAst -Template '{{ user.name }}'
+`$ast.Nodes | Format-Table Type, Expression
 ```
 
 ## NOTE
