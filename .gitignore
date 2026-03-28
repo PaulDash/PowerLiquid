@@ -1,0 +1,7 @@
+# Temporary staging and publish artifacts
+stage/
+
+# Local VS Code/editor state
+.vscode/
+*.code-workspace
+
