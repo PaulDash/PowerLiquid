@@ -43,7 +43,7 @@ function ConvertTo-LiquidAst {
     Write-Verbose "Tokenized template into $($tokens.Count) tokens"
 
     $index = 0
-    $nodes = Parse-LiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    $nodes = parseLiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
     Write-Verbose "Parsed $($nodes.Count) AST nodes"
 
     # Expose a stable root object so hosts can rely on one entry shape instead of a raw node array.
@@ -61,4 +61,5 @@ function ConvertTo-LiquidAst {
     Write-Verbose "AST parsing completed successfully"
     return $ast
 }
+
 

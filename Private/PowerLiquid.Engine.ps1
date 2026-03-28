@@ -385,7 +385,7 @@ function ConvertTo-LiquidToken {
     return ,$tokens.ToArray()
 }
 
-function Get-LiquidTagParts {
+function getLiquidTagPart {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -425,7 +425,7 @@ function Split-LiquidWhitespaceToken {
     return ,@($regexMatches | ForEach-Object { $_.Value })
 }
 
-function Parse-LiquidIncludeMarkup {
+function parseLiquidIncludeMarkup {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -456,7 +456,7 @@ function Parse-LiquidIncludeMarkup {
     }
 }
 
-function Parse-LiquidForMarkup {
+function parseLiquidForMarkup {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -474,7 +474,7 @@ function Parse-LiquidForMarkup {
     }
 }
 
-function Parse-LiquidNode {
+function parseLiquidNode {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
@@ -512,7 +512,7 @@ function Parse-LiquidNode {
             continue
         }
 
-        $tagParts = Get-LiquidTagParts -Markup $token.Value
+        $tagParts = getLiquidTagPart -Markup $token.Value
         if ($EndTags -contains $tagParts.Name) {
             break
         }
@@ -537,7 +537,7 @@ function Parse-LiquidNode {
 
                 $captureName = $matches[1]
                 $Index.Value++
-                $bodyNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endcapture') -Registry $Registry
+                $bodyNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('endcapture') -Registry $Registry
                 if ($Index.Value -ge $Tokens.Count) {
                     throw "Liquid capture tag '$captureName' is missing endcapture."
                 }
@@ -556,7 +556,7 @@ function Parse-LiquidNode {
                 $Index.Value++
 
                 while ($true) {
-                    $branchNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('elsif', 'else', 'endif') -Registry $Registry
+                    $branchNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('elsif', 'else', 'endif') -Registry $Registry
                     [void]$branches.Add([pscustomobject]@{
                         Condition = $condition
                         Nodes     = $branchNodes
@@ -566,7 +566,7 @@ function Parse-LiquidNode {
                         throw "Liquid if tag is missing endif."
                     }
 
-                    $nextTag = Get-LiquidTagParts -Markup $Tokens[$Index.Value].Value
+                    $nextTag = getLiquidTagPart -Markup $Tokens[$Index.Value].Value
                     switch ($nextTag.Name) {
                         'elsif' {
                             $condition = $nextTag.Markup
@@ -575,7 +575,7 @@ function Parse-LiquidNode {
                         }
                         'else' {
                             $Index.Value++
-                            $elseNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endif') -Registry $Registry
+                            $elseNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('endif') -Registry $Registry
                             if ($Index.Value -ge $Tokens.Count) {
                                 throw "Liquid if tag is missing endif."
                             }
@@ -607,18 +607,18 @@ function Parse-LiquidNode {
             }
             'for' {
                 # Parse for blocks with an optional else branch for empty collections.
-                $forMarkup = Parse-LiquidForMarkup -Markup $tagParts.Markup
+                $forMarkup = parseLiquidForMarkup -Markup $tagParts.Markup
                 $Index.Value++
-                $bodyNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endfor') -Registry $Registry
+                $bodyNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endfor') -Registry $Registry
                 if ($Index.Value -ge $Tokens.Count) {
                     throw "Liquid for tag is missing endfor."
                 }
 
-                $nextTag = Get-LiquidTagParts -Markup $Tokens[$Index.Value].Value
+                $nextTag = getLiquidTagPart -Markup $Tokens[$Index.Value].Value
                 $elseNodes = @()
                 if ($nextTag.Name -eq 'else') {
                     $Index.Value++
-                    $elseNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endfor') -Registry $Registry
+                    $elseNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('endfor') -Registry $Registry
                     if ($Index.Value -ge $Tokens.Count) {
                         throw "Liquid for tag is missing endfor."
                     }
@@ -637,16 +637,16 @@ function Parse-LiquidNode {
                 # Unless behaves like an inverted if with an optional else branch.
                 $condition = $tagParts.Markup
                 $Index.Value++
-                $bodyNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endunless') -Registry $Registry
+                $bodyNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endunless') -Registry $Registry
                 if ($Index.Value -ge $Tokens.Count) {
                     throw "Liquid unless tag is missing endunless."
                 }
 
-                $nextTag = Get-LiquidTagParts -Markup $Tokens[$Index.Value].Value
+                $nextTag = getLiquidTagPart -Markup $Tokens[$Index.Value].Value
                 $elseNodes = @()
                 if ($nextTag.Name -eq 'else') {
                     $Index.Value++
-                    $elseNodes = Parse-LiquidNode -Tokens $Tokens -Index $Index -EndTags @('endunless') -Registry $Registry
+                    $elseNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('endunless') -Registry $Registry
                     if ($Index.Value -ge $Tokens.Count) {
                         throw "Liquid unless tag is missing endunless."
                     }
@@ -666,7 +666,7 @@ function Parse-LiquidNode {
                 while ($Index.Value -lt $Tokens.Count) {
                     $commentToken = $Tokens[$Index.Value]
                     if ($commentToken.Type -eq 'Tag') {
-                        $commentTag = Get-LiquidTagParts -Markup $commentToken.Value
+                        $commentTag = getLiquidTagPart -Markup $commentToken.Value
                         if ($commentTag.Name -eq 'endcomment') {
                             break
                         }
@@ -688,7 +688,7 @@ function Parse-LiquidNode {
                 while ($Index.Value -lt $Tokens.Count) {
                     $rawToken = $Tokens[$Index.Value]
                     if ($rawToken.Type -eq 'Tag') {
-                        $rawTag = Get-LiquidTagParts -Markup $rawToken.Value
+                        $rawTag = getLiquidTagPart -Markup $rawToken.Value
                         if ($rawTag.Name -eq 'endraw') {
                             break
                         }
@@ -709,7 +709,7 @@ function Parse-LiquidNode {
                 })
             }
             'include' {
-                $includeMarkup = Parse-LiquidIncludeMarkup -Markup $tagParts.Markup
+                $includeMarkup = parseLiquidIncludeMarkup -Markup $tagParts.Markup
                 [void]$nodes.Add([pscustomobject]@{
                     Type             = 'Include'
                     TargetExpression = $includeMarkup.TargetExpression
@@ -755,7 +755,7 @@ function Parse-LiquidNode {
     return ,$nodes.ToArray()
 }
 
-function Parse-LiquidTemplate {
+function parseLiquidTemplate {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -769,7 +769,7 @@ function Parse-LiquidTemplate {
     # Parsing starts by tokenizing the template, then building nested nodes from those tokens.
     $tokens = ConvertTo-LiquidToken -Template $Template
     $index = 0
-    return Parse-LiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    return parseLiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
 }
 
 function Get-LiquidRuntimeValue {
@@ -1082,7 +1082,7 @@ function Test-LiquidTruthy {
     return (-not ($null -eq $Value -or $Value -eq $false))
 }
 
-function Get-LiquidDialectExtensions {
+function getLiquidDialectExtension {
     [CmdletBinding()]
     param(
         [hashtable]$Registry,
@@ -1115,7 +1115,7 @@ function Get-LiquidCustomFilter {
         [hashtable]$Runtime
     )
 
-    foreach ($dialectExtensions in Get-LiquidDialectExtensions -Registry $Runtime.Registry -Dialect $Runtime.Dialect) {
+    foreach ($dialectExtensions in getLiquidDialectExtension -Registry $Runtime.Registry -Dialect $Runtime.Dialect) {
         if ($dialectExtensions.Filters.ContainsKey($Name.ToLowerInvariant())) {
             return $dialectExtensions.Filters[$Name.ToLowerInvariant()]
         }
@@ -1133,7 +1133,7 @@ function Get-LiquidCustomTag {
         [hashtable]$Runtime
     )
 
-    foreach ($dialectExtensions in Get-LiquidDialectExtensions -Registry $Runtime.Registry -Dialect $Runtime.Dialect) {
+    foreach ($dialectExtensions in getLiquidDialectExtension -Registry $Runtime.Registry -Dialect $Runtime.Dialect) {
         if ($dialectExtensions.Tags.ContainsKey($Name.ToLowerInvariant())) {
             return $dialectExtensions.Tags[$Name.ToLowerInvariant()]
         }
@@ -1771,7 +1771,7 @@ function ConvertTo-LiquidAst {
     # Tokenize first so the AST API can optionally return both the raw token stream and the nested node tree.
     $tokens = ConvertTo-LiquidToken -Template $Template
     $index = 0
-    $nodes = Parse-LiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    $nodes = parseLiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
 
     # Expose a stable root object so hosts can rely on one entry shape instead of a raw node array.
     $ast = [pscustomobject]@{
@@ -1848,4 +1848,5 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
 
