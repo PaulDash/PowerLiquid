@@ -1,4 +1,4 @@
-@{
+﻿@{
     RootModule        = 'PowerLiquid.psm1'
     ModuleVersion     = '0.8.2'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
