@@ -178,7 +178,8 @@ We welcome contributions! Please follow these guidelines:
 
 1. Clone the repository.
 2. Ensure PowerShell 7+ is installed.
-3. Run tests in `.\tests\`
+3. Run tests: `.\tools\testExecution.ps1`
+4. Run Best Practices Analyzer: `.\tools\testBPA.ps1`
 
 ### Code Style
 

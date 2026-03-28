@@ -339,14 +339,14 @@ function ConvertTo-LiquidTokens {
     # Tokenize the template into plain text, output blocks, and tag blocks.
     $tokens = New-Object System.Collections.ArrayList
     $pattern = '\{\{[-]?(.*?)[-]?\}\}|\{%-?(.*?)-?%\}'
-    $matches = [System.Text.RegularExpressions.Regex]::Matches(
+    $regexMatches = [System.Text.RegularExpressions.Regex]::Matches(
         $Template,
         $pattern,
         [System.Text.RegularExpressions.RegexOptions]::Singleline
     )
 
     $position = 0
-    foreach ($match in $matches) {
+    foreach ($match in $regexMatches) {
         if ($match.Index -gt $position) {
             $text = $Template.Substring($position, $match.Index - $position)
             [void]$tokens.Add([pscustomobject]@{
@@ -417,12 +417,12 @@ function Split-LiquidWhitespaceTokens {
     )
 
     # Include-style tags need whitespace tokenization that keeps quoted strings intact.
-    $matches = [System.Text.RegularExpressions.Regex]::Matches(
+    $regexMatches = [System.Text.RegularExpressions.Regex]::Matches(
         $InputText,
         '(?:"[^"]*"|''[^'']*''|\S+)'
     )
 
-    return ,@($matches | ForEach-Object { $_.Value })
+    return ,@($regexMatches | ForEach-Object { $_.Value })
 }
 
 function Parse-LiquidIncludeMarkup {
@@ -1347,12 +1347,12 @@ function Split-LiquidConditionTokens {
     )
 
     # Keep quoted strings intact while splitting a condition into comparison tokens.
-    $matches = [System.Text.RegularExpressions.Regex]::Matches(
+    $regexMatches = [System.Text.RegularExpressions.Regex]::Matches(
         $Condition,
         '(?:"[^"]*"|''[^'']*''|\S+)'
     )
 
-    return ,@($matches | ForEach-Object { $_.Value })
+    return ,@($regexMatches | ForEach-Object { $_.Value })
 }
 
 function Invoke-LiquidComparison {

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Verbose output to all public functions for better debugging and monitoring
+- Tools folder with testExecution.ps1 and testBPA.ps1 for automated testing and best practices analysis
+
+### Fixed
+- Renamed $matches variables to $regexMatches to avoid overwriting PowerShell's automatic $matches variable
+- Fixed BOM encoding for PowerLiquid.psd1 to use UTF-8 with BOM
 
 ## [0.8.0] - 2026-03-28
 
