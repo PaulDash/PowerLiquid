@@ -43,14 +43,18 @@ PowerLiquid currently supports two dialects:
 The base `Liquid` dialect stays focused on core Liquid syntax.
 
 The `JekyllLiquid` dialect layers Jekyll-specific behavior such as:
+
 - Jekyll filters
 - Jekyll-style `{% include %}`
 
 ## Host Extension Model
 
+PowerLiquid allows hosts to extend the template language through an extension registry. This keeps custom behavior separate from core Liquid logic.
+
 PowerLiquid does not load plugins on its own.
 
 Instead, a host application is expected to:
+
 1. create an extension registry
 2. register any custom tags and filters
 3. pass that registry into the render call
@@ -62,12 +66,14 @@ That design keeps PowerLiquid reusable and avoids coupling it to any particular 
 PowerLiquid does not evaluate PowerShell from template text.
 
 Template input is limited to Liquid parsing and rendering rules:
+
 - object lookups
 - control-flow tags
 - built-in filters
 - host-registered custom tags and filters
 
 To reduce risk from untrusted context data, `Invoke-LiquidTemplate` sanitizes the supplied context into inert Liquid-safe values before rendering. In practice that means templates can safely read:
+
 - scalars such as strings, numbers, booleans, and datetimes
 - hashtables / dictionaries
 - arrays and enumerables
@@ -76,11 +82,13 @@ To reduce risk from untrusted context data, `Invoke-LiquidTemplate` sanitizes th
 PowerLiquid intentionally does not execute script-backed properties from context objects during variable lookup.
 
 Important trust boundary:
+
 - custom tags and custom filters are executable host code by design
 - if a host registers a malicious script block, PowerLiquid will invoke it
 - if a host registers a trusted CLR type, PowerLiquid will read that type's public properties
 
 So the safe rule is:
+
 - untrusted templates and untrusted data are acceptable inputs
 - untrusted extension handlers are not
 
@@ -133,6 +141,7 @@ $ast.Nodes
 ```
 
 The AST root is returned as a `PowerLiquid.Ast` object with:
+
 - `Dialect`
 - `Nodes`
 - optional `Tokens` when `-IncludeTokens` is used
@@ -160,3 +169,33 @@ PowerLiquid/
   docs/
   tests/
 ```
+
+## Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+### Development Setup
+
+1. Clone the repository.
+2. Ensure PowerShell 7+ is installed.
+3. Run tests in `.\tests\`
+
+### Code Style
+
+- Use consistent PowerShell naming conventions.
+- Add comment-based help for new functions.
+- Write Pester tests for new features.
+- Follow the existing code structure (public functions in `Public/`, private in `Private/`).
+
+### Submitting Changes
+
+1. Create a feature branch from `main`.
+2. Make changes and add tests.
+3. Run all tests and ensure they pass.
+4. Update CHANGELOG.md for significant changes.
+5. Submit a pull request with a clear description.
+
+### Reporting Issues
+
+- Use GitHub issues for bugs and feature requests.
+- Include template examples, expected vs. actual output, and PowerShell version.
