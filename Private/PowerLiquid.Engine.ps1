@@ -2059,8 +2059,23 @@ function Invoke-LiquidFilter {
             )
             return ,$sortedItems
         }
+        'uniq' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+            $uniqueItems = New-Object System.Collections.ArrayList
+            foreach ($item in @($InputObject)) {
+                $key = ConvertTo-Json -InputObject $item -Depth 20 -Compress
+                if ($seen.Add($key)) {
+                    [void]$uniqueItems.Add($item)
+                }
+            }
+
+            return ,@($uniqueItems.ToArray())
+        }
         # TODO: Add Liquid filter support for map.
-        # TODO: Add Liquid filter support for uniq.
         # TODO: Add Liquid filter support for where.
         default { throw "Liquid filter '$Name' is not supported." }
     }
@@ -2809,5 +2824,6 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
 
 

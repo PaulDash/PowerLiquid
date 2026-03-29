@@ -5,7 +5,7 @@ Renders a Liquid template.
 Parses and renders a Liquid template against a supplied context hashtable.
 PowerLiquid supports multiple dialects and host-provided extension registries
 for custom tags and filters. Built-in filters include string, numeric, date,
-URL, and collection helpers such as sort, sort_natural, slice, strip_html,
+URL, and collection helpers such as sort, sort_natural, uniq, slice, strip_html,
 url_encode, and url_decode.
 
 Before rendering, the supplied context is reduced to inert Liquid-safe data
@@ -81,5 +81,6 @@ function Invoke-LiquidTemplate {
 
     return $result
 }
+
 
 

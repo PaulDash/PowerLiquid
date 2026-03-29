@@ -173,6 +173,22 @@ Describe 'PowerLiquid filter behavior' {
 
         (Invoke-LiquidTemplate -Template '{% assign sorted = items | sort_natural: "name" %}{% for item in sorted %}{{ item.name }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'item1,item2,item10'
     }
+    It 'supports uniq for arrays of strings while preserving first-seen order' {
+        (Invoke-LiquidTemplate -Template '{{ "b,a,b,c,a" | split: "," | uniq | join: "," }}' -Context @{}).Trim() | Should -Be 'b,a,c'
+    }
+
+    It 'supports uniq for arrays of objects after sorting by property' {
+        $context = @{
+            items = @(
+                @{ name = 'charlie' }
+                @{ name = 'alpha' }
+                @{ name = 'alpha' }
+                @{ name = 'bravo' }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{% assign unique = items | sort: "name" | uniq %}{% for item in unique %}{{ item.name }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'alpha,bravo,charlie'
+    }
     It 'supports strip_newlines' {
         (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | strip_newlines }}' -Context @{}).Trim() | Should -Be 'line1line2'
     }
@@ -230,6 +246,7 @@ Describe 'PowerLiquid filter behavior' {
     }
 
 }
+
 
 
 

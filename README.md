@@ -72,7 +72,7 @@ Template input is limited to Liquid parsing and rendering rules:
 
 - object lookups
 - control-flow tags
-- built-in filters such as `sort`, `sort_natural`, `slice`, `strip_html`, `url_encode`, and `url_decode`
+- built-in filters such as `sort`, `sort_natural`, `uniq`, `slice`, `strip_html`, `url_encode`, and `url_decode`
 - host-registered custom tags and filters
 
 To reduce risk from untrusted context data, `Invoke-LiquidTemplate` sanitizes the supplied context into inert Liquid-safe values before rendering. In practice that means templates can safely read:
@@ -175,4 +175,5 @@ We welcome contributions! Please follow these guidelines:
 
 - Use GitHub issues for bugs and feature requests.
 - Include template examples, expected vs. actual output, and PowerShell version.
+
 
