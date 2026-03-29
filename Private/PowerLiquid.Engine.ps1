@@ -1545,8 +1545,8 @@ function Test-LiquidTruthy {
         $Value
     )
 
-    # Liquid truthiness is intentionally narrower than PowerShell truthiness.
-    return (-not ($null -eq $Value -or $Value -eq $false))
+    # In Liquid, only null and the boolean false are falsy.
+    return (-not ($null -eq $Value -or ($Value -is [bool] -and -not $Value)))
 }
 
 function getLiquidDialectExtension {
@@ -2092,7 +2092,34 @@ function Invoke-LiquidFilter {
 
             return ,@($mappedItems.ToArray())
         }
-        # TODO: Add Liquid filter support for where.
+        'where' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            if ($Arguments.Count -lt 1) {
+                throw "The 'where' filter requires at least 1 argument: property name"
+            }
+
+            $propertyName = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $matches = New-Object System.Collections.ArrayList
+            foreach ($item in @($InputObject)) {
+                $propertyValue = Resolve-LiquidSortValue -Value $item -PropertyName $propertyName
+                $includeItem = $false
+
+                if ($Arguments.Count -gt 1) {
+                    $includeItem = ($propertyValue -eq $Arguments[1])
+                } else {
+                    $includeItem = Test-LiquidTruthy -Value $propertyValue
+                }
+
+                if ($includeItem) {
+                    [void]$matches.Add((ConvertToLiquidSafeValue -Value $item -Registry $Runtime.Registry))
+                }
+            }
+
+            return ,@($matches.ToArray())
+        }
         default { throw "Liquid filter '$Name' is not supported." }
     }
 }
@@ -2840,6 +2867,9 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+
+
 
 
 

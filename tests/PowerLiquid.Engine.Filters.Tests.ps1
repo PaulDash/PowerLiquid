@@ -211,6 +211,54 @@ Describe 'PowerLiquid filter behavior' {
 
         (Invoke-LiquidTemplate -Template '{{ items | map: "author.name" | join: "," }}' -Context $context).Trim() | Should -Be 'Ada,Grace'
     }
+    It 'supports where by property value' {
+        $context = @{
+            products = @(
+                @{ title = 'Vacuum'; type = 'home' }
+                @{ title = 'Spatula'; type = 'kitchen' }
+                @{ title = 'Garlic press'; type = 'kitchen' }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{% assign kitchen = products | where: "type", "kitchen" %}{% for product in kitchen %}{{ product.title }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'Spatula,Garlic press'
+    }
+
+    It 'supports where with truthy property matching' {
+        $context = @{
+            products = @(
+                @{ title = 'Coffee mug'; available = $true }
+                @{ title = 'Limited edition sneakers'; available = $false }
+                @{ title = 'Boring sneakers'; available = $true }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{% assign available = products | where: "available" %}{% for product in available %}{{ product.title }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'Coffee mug,Boring sneakers'
+    }
+
+    It 'treats empty strings and zero as truthy for where without a target value' {
+        $context = @{
+            items = @(
+                @{ label = 'empty'; flag = '' }
+                @{ label = 'zero'; flag = 0 }
+                @{ label = 'false'; flag = $false }
+                @{ label = 'null'; flag = $null }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{% assign filtered = items | where: "flag" %}{% for item in filtered %}{{ item.label }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'empty,zero'
+    }
+
+    It 'supports where by nested property value' {
+        $context = @{
+            posts = @(
+                @{ author = @{ name = 'Ada' }; title = 'Post 1' }
+                @{ author = @{ name = 'Grace' }; title = 'Post 2' }
+                @{ author = @{ name = 'Ada' }; title = 'Post 3' }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{% assign ada_posts = posts | where: "author.name", "Ada" %}{% for post in ada_posts %}{{ post.title }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'Post 1,Post 3'
+    }
     It 'supports strip_newlines' {
         (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | strip_newlines }}' -Context @{}).Trim() | Should -Be 'line1line2'
     }
@@ -268,6 +316,7 @@ Describe 'PowerLiquid filter behavior' {
     }
 
 }
+
 
 
 
