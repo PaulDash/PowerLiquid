@@ -142,6 +142,37 @@ Describe 'PowerLiquid filter behavior' {
     It 'supports slice for arrays with a negative start index' {
         (Invoke-LiquidTemplate -Template '{{ "a,b,c,d" | split: "," | slice: -2, 2 | join: "," }}' -Context @{}).Trim() | Should -Be 'c,d'
     }
+    It 'supports sort for arrays of strings' {
+        (Invoke-LiquidTemplate -Template '{{ "delta,alpha,charlie" | split: "," | sort | join: "," }}' -Context @{}).Trim() | Should -Be 'alpha,charlie,delta'
+    }
+
+    It 'supports sort by property name' {
+        $context = @{
+            items = @(
+                @{ name = 'charlie'; order = 3 }
+                @{ name = 'alpha'; order = 1 }
+                @{ name = 'bravo'; order = 2 }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{% assign sorted = items | sort: "name" %}{% for item in sorted %}{{ item.name }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'alpha,bravo,charlie'
+    }
+
+    It 'supports sort_natural for mixed numeric strings' {
+        (Invoke-LiquidTemplate -Template '{{ "item10,item2,item1" | split: "," | sort_natural | join: "," }}' -Context @{}).Trim() | Should -Be 'item1,item2,item10'
+    }
+
+    It 'supports sort_natural by property name' {
+        $context = @{
+            items = @(
+                @{ name = 'item10' }
+                @{ name = 'item2' }
+                @{ name = 'item1' }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{% assign sorted = items | sort_natural: "name" %}{% for item in sorted %}{{ item.name }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'item1,item2,item10'
+    }
     It 'supports strip_newlines' {
         (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | strip_newlines }}' -Context @{}).Trim() | Should -Be 'line1line2'
     }
@@ -199,5 +230,6 @@ Describe 'PowerLiquid filter behavior' {
     }
 
 }
+
 
 

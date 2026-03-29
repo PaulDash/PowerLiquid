@@ -1449,6 +1449,50 @@ function ConvertTo-LiquidLiteralValue {
     return Resolve-LiquidVariable -Runtime $Runtime -Path $trimmedExpression
 }
 
+function Resolve-LiquidSortValue {
+    [CmdletBinding()]
+    [OutputType([object])]
+    param(
+        $Value,
+
+        [string]$PropertyName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PropertyName)) {
+        return $Value
+    }
+
+    $currentValue = $Value
+    foreach ($segment in $PropertyName.Split('.')) {
+        if ($null -eq $currentValue) {
+            return $null
+        }
+
+        $currentValue = Get-LiquidRuntimeValue -Value $currentValue -MemberName $segment
+    }
+
+    return $currentValue
+}
+
+function ConvertTo-LiquidNaturalSortKey {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        $Value
+    )
+
+    $text = ConvertTo-LiquidOutputString -Value $Value
+    $normalized = $text.ToLowerInvariant()
+    return [System.Text.RegularExpressions.Regex]::Replace(
+        $normalized,
+        '\d+',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($Match)
+            $Match.Value.PadLeft(20, '0')
+        }
+    )
+}
+
 function ConvertTo-LiquidOutputString {
     [CmdletBinding()]
     [OutputType([string])]
@@ -1987,10 +2031,35 @@ function Invoke-LiquidFilter {
 
             return (ConvertTo-Json -InputObject $InputObject -Depth 20 -Compress)
         }
+        'sort' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            $propertyName = if ($Arguments.Count -gt 0) { ConvertTo-LiquidOutputString -Value $Arguments[0] } else { $null }
+            $sortedItems = @(
+                @($InputObject) |
+                    Sort-Object -Stable -Property @{
+                        Expression = { Resolve-LiquidSortValue -Value $_ -PropertyName $propertyName }
+                    }
+            )
+            return ,$sortedItems
+        }
+        'sort_natural' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            $propertyName = if ($Arguments.Count -gt 0) { ConvertTo-LiquidOutputString -Value $Arguments[0] } else { $null }
+            $sortedItems = @(
+                @($InputObject) |
+                    Sort-Object -Stable -Property @{
+                        Expression = { ConvertTo-LiquidNaturalSortKey -Value (Resolve-LiquidSortValue -Value $_ -PropertyName $propertyName) }
+                    }
+            )
+            return ,$sortedItems
+        }
         # TODO: Add Liquid filter support for map.
-        # TODO: Add Liquid filter support for slice.
-        # TODO: Add Liquid filter support for sort.
-        # TODO: Add Liquid filter support for sort_natural.
         # TODO: Add Liquid filter support for uniq.
         # TODO: Add Liquid filter support for where.
         default { throw "Liquid filter '$Name' is not supported." }
@@ -2740,3 +2809,5 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+
