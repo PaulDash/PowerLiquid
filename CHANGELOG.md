@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.14] - 2026-03-29
+
+### Added
+
+- Operator-focused tests for every supported comparison and logical operator
+- Explicit tests for right-to-left Liquid condition evaluation and lack of parenthesis support
+- "to-do" markers in the engine for future tags and filters
+
+### Changed
+
+- Deprecated the include tag in the Liquid dialect so it now warns and is ignored
+- Preserved include behavior in JekyllLiquid for Jekyll-compatible hosts
+- Updated help to describe the supported tag surface and dialect-specific include behavior
+
 ## [0.8.13] - 2026-03-29
 
 ### Changed
@@ -57,4 +71,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Various parsing and rendering improvements
-

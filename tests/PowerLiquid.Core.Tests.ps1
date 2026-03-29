@@ -91,4 +91,22 @@ Describe 'PowerLiquid core behavior' {
         Set-Content -LiteralPath $outsidePath -Encoding UTF8 -Value 'Outside'
         { Invoke-LiquidTemplate -Template (Get-Content -LiteralPath $postPath -Raw) -Context @{} -Dialect JekyllLiquid -CurrentFilePath $postPath -RelativeIncludeRoot $postsRoot } | Should -Throw -ExpectedMessage '*include_relative*outside the allowed relative include root*'
     }
+
+    It 'warns and ignores include in the Liquid dialect' {
+        $includeRoot = Join-Path -Path $TestDrive -ChildPath 'liquid-include-root'
+        $includePath = Join-Path -Path $includeRoot -ChildPath 'card.txt'
+        [void](New-Item -Path $includeRoot -ItemType Directory -Force)
+        Set-Content -LiteralPath $includePath -Encoding UTF8 -Value 'Included content'
+        $stream = & { Invoke-LiquidTemplate -Template '{% include card.txt %}X' -Context @{} -Dialect Liquid -IncludeRoot $includeRoot } 3>&1
+        ($stream | Where-Object { $_ -is [System.Management.Automation.WarningRecord] }).Count | Should -Be 1
+        ($stream | Where-Object { $_ -is [string] } | Select-Object -Last 1) | Should -Be 'X'
+    }
+
+    It 'still supports include in the JekyllLiquid dialect' {
+        $includeRoot = Join-Path -Path $TestDrive -ChildPath 'jekyll-include-root'
+        $includePath = Join-Path -Path $includeRoot -ChildPath 'card.txt'
+        [void](New-Item -Path $includeRoot -ItemType Directory -Force)
+        Set-Content -LiteralPath $includePath -Encoding UTF8 -Value 'Included content'
+        (Invoke-LiquidTemplate -Template '{% include card.txt %}' -Context @{} -Dialect JekyllLiquid -IncludeRoot $includeRoot).Trim() | Should -Be 'Included content'
+    }
 }

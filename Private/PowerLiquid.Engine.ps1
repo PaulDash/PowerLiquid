@@ -999,6 +999,8 @@ function parseLiquidNode {
                 })
                 $Index.Value++
             }
+            # TODO: Add Liquid tag support for echo.
+            # TODO: Add Liquid tag support for render.
             '' {
                 $Index.Value++
             }
@@ -1679,6 +1681,40 @@ function Invoke-LiquidFilter {
 
             return (ConvertTo-Json -InputObject $InputObject -Depth 20 -Compress)
         }
+        # TODO: Add Liquid filter support for abs.
+        # TODO: Add Liquid filter support for at_least.
+        # TODO: Add Liquid filter support for at_most.
+        # TODO: Add Liquid filter support for capitalize.
+        # TODO: Add Liquid filter support for concat.
+        # TODO: Add Liquid filter support for date.
+        # TODO: Add Liquid filter support for divided_by.
+        # TODO: Add Liquid filter support for floor.
+        # TODO: Add Liquid filter support for map.
+        # TODO: Add Liquid filter support for minus.
+        # TODO: Add Liquid filter support for modulo.
+        # TODO: Add Liquid filter support for newline_to_br.
+        # TODO: Add Liquid filter support for plus.
+        # TODO: Add Liquid filter support for remove.
+        # TODO: Add Liquid filter support for remove_first.
+        # TODO: Add Liquid filter support for remove_last.
+        # TODO: Add Liquid filter support for replace.
+        # TODO: Add Liquid filter support for replace_first.
+        # TODO: Add Liquid filter support for replace_last.
+        # TODO: Add Liquid filter support for reverse.
+        # TODO: Add Liquid filter support for round.
+        # TODO: Add Liquid filter support for slice.
+        # TODO: Add Liquid filter support for sort.
+        # TODO: Add Liquid filter support for sort_natural.
+        # TODO: Add Liquid filter support for strip_html.
+        # TODO: Add Liquid filter support for strip_newlines.
+        # TODO: Add Liquid filter support for sum.
+        # TODO: Add Liquid filter support for times.
+        # TODO: Add Liquid filter support for truncate.
+        # TODO: Add Liquid filter support for truncatewords.
+        # TODO: Add Liquid filter support for uniq.
+        # TODO: Add Liquid filter support for url_decode.
+        # TODO: Add Liquid filter support for url_encode.
+        # TODO: Add Liquid filter support for where.
         default { throw "Liquid filter '$Name' is not supported." }
     }
 }
@@ -1805,8 +1841,8 @@ function Invoke-LiquidConditionToken {
         [hashtable]$Runtime
     )
 
-    # Evaluate logical operators right-to-left, which matches Liquid's condition parsing rules.
-    for ($index = $Tokens.Count - 1; $index -ge 0; $index--) {
+    # Evaluate logical operators right-to-left by splitting on the leftmost logical operator first.
+    for ($index = 0; $index -lt $Tokens.Count; $index++) {
         switch ($Tokens[$index]) {
             'and' {
                 $leftTokens = if ($index -gt 0) { $Tokens[0..($index - 1)] } else { @() }
@@ -1834,6 +1870,10 @@ function Invoke-LiquidCondition {
         [Parameter(Mandatory = $true)]
         [hashtable]$Runtime
     )
+
+    if ($Condition.Contains('(') -or $Condition.Contains(')')) {
+        throw 'Liquid conditions do not support parentheses.'
+    }
 
     # Condition evaluation is split into tokenization and recursive logical/comparison evaluation.
     $tokens = Split-LiquidConditionToken -Condition $Condition
@@ -1990,9 +2030,10 @@ function Invoke-LiquidInclude {
         [hashtable]$Runtime
     )
 
-    # Include is a Jekyll-style extension point in this module, exposed only through the JekyllLiquid dialect.
+    # Include is deprecated in standard Liquid, but preserved for JekyllLiquid compatibility.
     if ($Runtime.Dialect -ne 'JekyllLiquid') {
-        throw "Liquid tag 'include' is not supported in the '$($Runtime.Dialect)' dialect."
+        Write-Warning "Liquid tag 'include' is deprecated in the '$($Runtime.Dialect)' dialect and will be ignored."
+        return ''
     }
 
     $includeTarget = Resolve-LiquidExpression -Expression $Node.TargetExpression -Runtime $Runtime
@@ -2159,6 +2200,7 @@ function ConvertFrom-LiquidNode {
                     if ($node.Else.Count -gt 0) { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime)) }
                     continue
                 }
+                # TODO: Add Liquid tag support for forloop.
                 $outerForLoop = Resolve-LiquidVariable -Runtime $Runtime -Path 'forloop'
                 $Runtime.LoopDepth++
                 try {
@@ -2233,6 +2275,7 @@ function ConvertFrom-LiquidNode {
             'Tablerow' {
                 $items = @(ConvertTo-LiquidEnumerable -Value (Resolve-LiquidExpression -Expression $node.CollectionExpression -Runtime $Runtime))
                 if ($items.Count -eq 0) { continue }
+                # TODO: Add Liquid tag support for tablerowloop.
                 $outerTablerowLoop = Resolve-LiquidVariable -Runtime $Runtime -Path 'tablerowloop'
                 $Runtime.LoopDepth++
                 try {

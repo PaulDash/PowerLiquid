@@ -79,4 +79,3 @@ function Invoke-LiquidTemplate {
 
     return $result
 }
-
