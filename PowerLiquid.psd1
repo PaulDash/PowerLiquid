@@ -1,6 +1,6 @@
-@{
+﻿@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.8.15'
+    ModuleVersion     = '0.9.0'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
@@ -50,18 +50,11 @@
             - explicit dialect support
             - host-controlled extensibility
 
-            # 0.8.14
+            # 0.9.0
             Features:
-            - Liquid template tokenization
-            - AST generation through ConvertTo-LiquidAst with source locations on tokens and AST nodes, with line/column source locations and comment-based help as the single authored help source
-            - object output with filter pipelines
-            - control-flow tags such as if/elsif/else/unless/case/for/tablerow, assign and capture, comment and raw blocks
-            - custom tags and filters through an extension registry with trusted type registration
-            - separate Liquid and JekyllLiquid dialects
-            - Jekyll-style include_relative support with host-controlled current-file and allowed-root resolution
-            - cycle, break, continue, increment, decrement, and tablerow tags
-            - operator-focused tests for every supported comparison and logical operator
-            - right-to-left logical condition evaluation coverage and dialect-specific include deprecation handling
+            - complete built-in filter surface for the current Liquid implementation, including collection, date, URL, string, and numeric filters
+            - consistent top-level error handling across the exported commands
+            - inline section comments across the module loader, public entry points, and engine sections for easier maintenance
             '
         }
     }

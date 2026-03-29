@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-29
+
 ### Added
 
-- Numeric filter support: plus, minus, times, divided_by, modulo
-- Arithmetic filter support: abs, at_least, at_most, floor, round
-- String filter support: capitalize, concat, newline_to_br, remove, remove_first, remove_last, replace, replace_first, replace_last, reverse, strip_newlines, truncate, truncatewords
-- Date and collection filter support: date (with "now"/"today" keywords), sum, sort, sort_natural, uniq, map, and where
-- Additional string and utility filters: slice, strip_html, url_encode, and url_decode
+- Completed the current built-in Liquid filter surface with where as the final collection filter milestone
+- Added command-level error wrapping across the exported functions so parse, render, and registry failures surface with clearer entry-point context
+- Added inline section comments across the module loader, public command wrappers, and major engine sections
+
+### Changed
+
+- Promoted the module version to 0.9.0 to mark the completed filter milestone
 
 ## [0.8.14] - 2026-03-29
 

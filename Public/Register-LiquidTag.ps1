@@ -32,14 +32,19 @@ function Register-LiquidTag {
         [scriptblock]$Handler
     )
 
-    if (-not $Registry.Dialects.ContainsKey($Dialect)) {
-        throw "Liquid dialect '$Dialect' is not supported yet."
+    try {
+        # Validate that the registry contains the requested dialect table before mutating it.
+        if (-not $Registry.Dialects.ContainsKey($Dialect)) {
+            throw "Liquid dialect '$Dialect' is not supported yet."
+        }
+
+        Write-Verbose "Registering custom tag '$Name' for dialect '$Dialect'"
+
+        # Store the handler under the normalized tag name so lookup stays case-insensitive.
+        $Registry.Dialects[$Dialect].Tags[$Name.ToLowerInvariant()] = $Handler
+
+        Write-Verbose "Custom tag '$Name' registered successfully"
+    } catch {
+        throw "Register-LiquidTag failed: $($_.Exception.Message)"
     }
-
-    Write-Verbose "Registering custom tag '$Name' for dialect '$Dialect'"
-
-    # Custom tags plug into the parser as single inline tags such as {% seo %}.
-    $Registry.Dialects[$Dialect].Tags[$Name.ToLowerInvariant()] = $Handler
-
-    Write-Verbose "Custom tag '$Name' registered successfully"
 }

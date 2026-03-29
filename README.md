@@ -12,10 +12,11 @@ PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rende
 ## Current Features
 
 - Liquid template tokenization
-- object output with filter pipelines including string, numeric, date, URL, and collection helpers
+- object output with the full current built-in filter set across string, numeric, date, URL, and collection helpers
 - custom tags and filters through an extension registry
 - separate `Liquid` and `JekyllLiquid` dialects
 - AST generation through `ConvertTo-LiquidAst` with token and node diagnostics
+- consistent top-level error handling across the exported commands
 
 ### Available commands
 

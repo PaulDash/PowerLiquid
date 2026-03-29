@@ -22,6 +22,18 @@ Describe 'PowerLiquid advanced engine tags' {
         $result = Invoke-LiquidTemplate -Template $template -Context @{ items = @('a', 'b', 'c') }
         $result | Should -Be '<tr class=""row1""><td class=""col1"">a</td><td class=""col2"">b</td></tr><tr class=""row2""><td class=""col1"">c</td></tr>'
     }
+    It 'supports forloop properties including parentloop in nested loops' {
+        $template = '{% for row in rows %}[{{ forloop.index }}/{{ forloop.length }}/{{ forloop.first }}/{{ forloop.last }}:{% for cell in row %}{{ forloop.parentloop.index }}.{{ forloop.index0 }}.{{ forloop.rindex0 }}{% unless forloop.last %},{% endunless %}{% endfor %}]{% endfor %}'
+        $context = @{ rows = @(@('a', 'b'), @('c')) }
+        $result = Invoke-LiquidTemplate -Template $template -Context $context
+        $result | Should -Be '[1/2/True/False:1.0.1,1.1.0][2/2/False/True:2.0.0]'
+    }
+
+    It 'supports tablerowloop row and column properties' {
+        $template = '{% tablerow item in items cols:2 %}{{ tablerowloop.row }}:{{ tablerowloop.col }}:{{ tablerowloop.col_first }}:{{ tablerowloop.col_last }}:{{ tablerowloop.index0 }}:{{ tablerowloop.rindex }}{% endtablerow %}'
+        $result = Invoke-LiquidTemplate -Template $template -Context @{ items = @('a', 'b', 'c') }
+        $result | Should -Be '<tr class=""row1""><td class=""col1"">1:1:True:False:0:3</td><td class=""col2"">1:2:False:True:1:2</td></tr><tr class=""row2""><td class=""col1"">2:1:True:True:2:1</td></tr>'
+    }
 
     It 'rejects break outside loop constructs' {
         { Invoke-LiquidTemplate -Template '{% break %}' -Context @{} } | Should -Throw -ExpectedMessage '*break tag can only be used inside for or tablerow loops*'

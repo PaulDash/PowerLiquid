@@ -66,23 +66,26 @@ function Invoke-LiquidTemplate {
         [hashtable]$Registry = (New-LiquidExtensionRegistry)
     )
 
-    AssertLiquidDialect -Dialect $Dialect
+    try {
+        # Validate the requested dialect before we build any runtime state.
+        AssertLiquidDialect -Dialect $Dialect
 
-    Write-Verbose "Rendering template with dialect '$Dialect'"
+        Write-Verbose "Rendering template with dialect '$Dialect'"
 
-    $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -CurrentFilePath $CurrentFilePath -RelativeIncludeRoot $RelativeIncludeRoot -IncludeStack $IncludeStack -Registry $Registry
-    Write-Verbose "Created runtime with $($Context.Count) context variables"
+        # Build the isolated runtime that carries sanitized context, include settings, and host extensions.
+        $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -CurrentFilePath $CurrentFilePath -RelativeIncludeRoot $RelativeIncludeRoot -IncludeStack $IncludeStack -Registry $Registry
+        Write-Verbose "Created runtime with $($Context.Count) context variables"
 
-    $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
-    Write-Verbose "Parsed AST with $($ast.Nodes.Count) nodes"
+        # Parse the template first so render-time evaluation always works from a consistent AST shape.
+        $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
+        Write-Verbose "Parsed AST with $($ast.Nodes.Count) nodes"
 
-    $result = ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
-    Write-Verbose "Rendered template successfully"
+        # Render the AST against the prepared runtime and return the resulting text.
+        $result = ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
+        Write-Verbose "Rendered template successfully"
 
-    return $result
+        return $result
+    } catch {
+        throw "Invoke-LiquidTemplate failed: $($_.Exception.Message)"
+    }
 }
-
-
-
-
-

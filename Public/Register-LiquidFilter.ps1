@@ -31,14 +31,19 @@ function Register-LiquidFilter {
         [scriptblock]$Handler
     )
 
-    if (-not $Registry.Dialects.ContainsKey($Dialect)) {
-        throw "Liquid dialect '$Dialect' is not supported yet."
+    try {
+        # Validate that the registry contains the requested dialect table before mutating it.
+        if (-not $Registry.Dialects.ContainsKey($Dialect)) {
+            throw "Liquid dialect '$Dialect' is not supported yet."
+        }
+
+        Write-Verbose "Registering custom filter '$Name' for dialect '$Dialect'"
+
+        # Store the handler under the normalized filter name so lookup stays case-insensitive.
+        $Registry.Dialects[$Dialect].Filters[$Name.ToLowerInvariant()] = $Handler
+
+        Write-Verbose "Custom filter '$Name' registered successfully"
+    } catch {
+        throw "Register-LiquidFilter failed: $($_.Exception.Message)"
     }
-
-    Write-Verbose "Registering custom filter '$Name' for dialect '$Dialect'"
-
-    # Custom filters join the normal filter pipeline and can be targeted to one dialect.
-    $Registry.Dialects[$Dialect].Filters[$Name.ToLowerInvariant()] = $Handler
-
-    Write-Verbose "Custom filter '$Name' registered successfully"
 }

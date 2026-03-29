@@ -26,13 +26,19 @@ function Register-LiquidTrustedType {
         [string]$TypeName
     )
 
-    if (-not $Registry.ContainsKey('TrustedTypes') -or $null -eq $Registry.TrustedTypes) {
-        $Registry.TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    try {
+        # Ensure the trusted-type registry exists even when a host supplied a partially constructed registry.
+        if (-not $Registry.ContainsKey('TrustedTypes') -or $null -eq $Registry.TrustedTypes) {
+            $Registry.TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+        }
+
+        Write-Verbose "Registering trusted type '$TypeName' for object-property access"
+
+        # Add the type name to the normalized trusted-type set used during safe object conversion.
+        [void]$Registry.TrustedTypes.Add($TypeName)
+
+        Write-Verbose "Trusted type '$TypeName' registered successfully"
+    } catch {
+        throw "Register-LiquidTrustedType failed: $($_.Exception.Message)"
     }
-
-    Write-Verbose "Registering trusted type '$TypeName' for object-property access"
-
-    [void]$Registry.TrustedTypes.Add($TypeName)
-
-    Write-Verbose "Trusted type '$TypeName' registered successfully"
 }

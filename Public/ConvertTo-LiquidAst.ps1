@@ -67,38 +67,38 @@ function ConvertTo-LiquidAst {
         [switch]$IncludeTokens
     )
 
-    AssertLiquidDialect -Dialect $Dialect
+    try {
+        # Validate the dialect up front so parsing behavior stays consistent with rendering.
+        AssertLiquidDialect -Dialect $Dialect
 
-    Write-Verbose "Parsing template to AST with dialect '$Dialect'"
+        Write-Verbose "Parsing template to AST with dialect '$Dialect'"
 
-    # Tokenize first so the AST API can optionally return both the raw token stream and the nested node tree.
-    $tokens = ConvertTo-LiquidToken -Template $Template
-    Write-Verbose "Tokenized template into $($tokens.Count) tokens"
+        # Tokenize first so the AST API can optionally return both the raw token stream and the nested node tree.
+        $tokens = ConvertTo-LiquidToken -Template $Template
+        Write-Verbose "Tokenized template into $($tokens.Count) tokens"
 
-    $index = 0
-    $nodes = parseLiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
-    $tokenIndex = 0
-    addLiquidAstLocation -Nodes $nodes -Tokens $tokens -TokenIndex ([ref]$tokenIndex)
-    Write-Verbose "Parsed $($nodes.Count) AST nodes"
+        # Parse the nested node tree and then attach token-derived source locations for diagnostics.
+        $index = 0
+        $nodes = parseLiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+        $tokenIndex = 0
+        addLiquidAstLocation -Nodes $nodes -Tokens $tokens -TokenIndex ([ref]$tokenIndex)
+        Write-Verbose "Parsed $($nodes.Count) AST nodes"
 
-    # Expose a stable root object so hosts can rely on one entry shape instead of a raw node array.
-    $ast = [pscustomobject]@{
-        PSTypeName = 'PowerLiquid.Ast'
-        Dialect    = $Dialect
-        Nodes      = @($nodes)
+        # Expose a stable root object so hosts can rely on one entry shape instead of a raw node array.
+        $ast = [pscustomobject]@{
+            PSTypeName = 'PowerLiquid.Ast'
+            Dialect    = $Dialect
+            Nodes      = @($nodes)
+        }
+
+        if ($IncludeTokens) {
+            Add-Member -InputObject $ast -MemberType NoteProperty -Name Tokens -Value @($tokens)
+            Write-Verbose "Included token stream in AST output"
+        }
+
+        Write-Verbose "AST parsing completed successfully"
+        return $ast
+    } catch {
+        throw "ConvertTo-LiquidAst failed: $($_.Exception.Message)"
     }
-
-    if ($IncludeTokens) {
-        Add-Member -InputObject $ast -MemberType NoteProperty -Name Tokens -Value @($tokens)
-        Write-Verbose "Included token stream in AST output"
-    }
-
-    Write-Verbose "AST parsing completed successfully"
-    return $ast
 }
-
-
-
-
-
-

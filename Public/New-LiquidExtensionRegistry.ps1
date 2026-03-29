@@ -15,27 +15,31 @@ function New-LiquidExtensionRegistry {
     [OutputType([hashtable])]
     param()
 
-    if (-not $PSCmdlet.ShouldProcess('Liquid extension registry', 'Create')) {
-        return
-    }
+    try {
+        if (-not $PSCmdlet.ShouldProcess('Liquid extension registry', 'Create')) {
+            return
+        }
 
-    Write-Verbose "Creating new Liquid extension registry"
+        Write-Verbose "Creating new Liquid extension registry"
 
-    # Each dialect keeps separate custom tags and filters so extensions can stay dialect-specific.
-    $registry = @{
-        TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-        Dialects = @{
-            Liquid = @{
-                Tags    = @{}
-                Filters = @{}
-            }
-            JekyllLiquid = @{
-                Tags    = @{}
-                Filters = @{}
+        # Create the root registry object with dialect-specific tag and filter tables.
+        $registry = @{
+            TrustedTypes = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+            Dialects = @{
+                Liquid = @{
+                    Tags    = @{}
+                    Filters = @{}
+                }
+                JekyllLiquid = @{
+                    Tags    = @{}
+                    Filters = @{}
+                }
             }
         }
-    }
 
-    Write-Verbose "Extension registry created with support for Liquid and JekyllLiquid dialects"
-    return $registry
+        Write-Verbose "Extension registry created with support for Liquid and JekyllLiquid dialects"
+        return $registry
+    } catch {
+        throw "New-LiquidExtensionRegistry failed: $($_.Exception.Message)"
+    }
 }

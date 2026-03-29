@@ -9,11 +9,10 @@
 
 ### Compatibility
 
-- add "forloop", "tablerowloop", "echo", and "render" tag support
+- "echo", and "render" tag support
 - add "liquid" tag support (from Liquid version 5.0.0)
 - support for inline comments inside tags (from version 5.4.0)
 - add "EmptyDrop" object type
-- add more Liquid filters and stricter compatibility behavior
 - support whitespace-control edge cases more completely
 
 ### Host Integration

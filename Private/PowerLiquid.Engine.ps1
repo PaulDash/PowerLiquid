@@ -155,6 +155,7 @@ function Register-LiquidTrustedType {
     [void]$Registry.TrustedTypes.Add($TypeName)
 }
 
+# Core dialect and safe-value helpers keep host data and dialect behavior consistent.
 function AssertLiquidDialect {
     [CmdletBinding()]
     [OutputType([void])]
@@ -428,6 +429,7 @@ function getLiquidTokenLocation {
 
     return newLiquidSourceLocation -StartIndex $Token.StartIndex -StartLine $Token.StartLine -StartColumn $Token.StartColumn -EndIndex $Token.EndIndex -EndLine $Token.EndLine -EndColumn $Token.EndColumn
 }
+# Tokenization and markup parsing turn template text into the normalized parser input stream.
 function ConvertTo-LiquidToken {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -668,6 +670,7 @@ function parseLiquidTablerowMarkup {
     }
 }
 
+# AST construction walks the token stream and builds the nested node tree used by both tooling and rendering.
 function parseLiquidNode {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -1164,6 +1167,7 @@ function parseLiquidTemplate {
     addLiquidAstLocation -Nodes $nodes -Tokens $tokens -TokenIndex ([ref]$tokenIndex)
     return $nodes
 }
+# Runtime value resolution handles scope lookup, property traversal, and safe host data access.
 function Get-LiquidRuntimeValue {
     [CmdletBinding()]
     [OutputType([object])]
@@ -1640,6 +1644,7 @@ function newLiquidExtensionInvocation {
     }
 }
 
+# Filter resolution and invocation apply built-in and host-provided pipeline behavior.
 function Invoke-LiquidFilter {
     [CmdletBinding()]
     [OutputType([string], [object[]], [hashtable], [pscustomobject], [bool], [int32], [double])]
@@ -2124,6 +2129,7 @@ function Invoke-LiquidFilter {
     }
 }
 
+# Expression and condition helpers evaluate Liquid literals, comparisons, and right-to-left boolean logic.
 function Resolve-LiquidExpression {
     [CmdletBinding()]
     [OutputType([object])]
@@ -2285,6 +2291,7 @@ function Invoke-LiquidCondition {
     return Invoke-LiquidConditionToken -Tokens $tokens -Runtime $Runtime
 }
 
+# Runtime construction and node rendering drive include handling, loop state, and final output generation.
 function newLiquidRuntime {
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -2551,6 +2558,71 @@ function ConvertTo-LiquidEnumerable {
     return @($Value)
 }
 
+function New-LiquidForLoopObject {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Index,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Length,
+
+        $ParentLoop
+    )
+
+    # Keep forloop metadata in one helper so nested loop behavior stays consistent.
+    return @{
+        length     = $Length
+        index      = $Index + 1
+        index0     = $Index
+        rindex     = $Length - $Index
+        rindex0    = $Length - $Index - 1
+        first      = ($Index -eq 0)
+        last       = ($Index -eq ($Length - 1))
+        parentloop = $ParentLoop
+    }
+}
+
+function New-LiquidTablerowLoopObject {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Index,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Length,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Columns,
+
+        $ParentLoop
+    )
+
+    $columnIndex = ($Index % $Columns) + 1
+    $rowIndex = [math]::Floor($Index / $Columns) + 1
+
+    # tablerowloop extends the standard loop metadata with row and column position details.
+    return @{
+        col        = $columnIndex
+        col0       = $columnIndex - 1
+        col_first  = ($columnIndex -eq 1)
+        col_last   = (($columnIndex -eq $Columns) -or ($Index -eq ($Length - 1)))
+        row        = $rowIndex
+        row0       = $rowIndex - 1
+        index      = $Index + 1
+        index0     = $Index
+        rindex     = $Length - $Index
+        rindex0    = $Length - $Index - 1
+        first      = ($Index -eq 0)
+        last       = ($Index -eq ($Length - 1))
+        length     = $Length
+        cols       = $Columns
+        parentloop = $ParentLoop
+    }
+}
+
 function ConvertFrom-LiquidNode {
     [CmdletBinding()]
     [OutputType([string])]
@@ -2605,24 +2677,14 @@ function ConvertFrom-LiquidNode {
                     if ($node.Else.Count -gt 0) { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime)) }
                     continue
                 }
-                # TODO: Add Liquid tag support for forloop.
+                # Nested for loops expose the current loop and its parent through the forloop object.
                 $outerForLoop = Resolve-LiquidVariable -Runtime $Runtime -Path 'forloop'
                 $Runtime.LoopDepth++
                 try {
                     for ($index = 0; $index -lt $items.Count; $index++) {
                         $loopScope = @{
                             $node.VariableName = $items[$index]
-                            forloop            = @{
-                                name       = $node.VariableName
-                                length     = $items.Count
-                                index      = $index + 1
-                                index0     = $index
-                                rindex     = $items.Count - $index
-                                rindex0    = $items.Count - $index - 1
-                                first      = ($index -eq 0)
-                                last       = ($index -eq ($items.Count - 1))
-                                parentloop = $outerForLoop
-                            }
+                            forloop            = New-LiquidForLoopObject -Index $index -Length $items.Count -ParentLoop $outerForLoop
                         }
                         Add-LiquidScope -Runtime $Runtime -Scope $loopScope
                         try { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime)) } finally { removeLiquidScope -Runtime $Runtime }
@@ -2680,30 +2742,19 @@ function ConvertFrom-LiquidNode {
             'Tablerow' {
                 $items = @(ConvertTo-LiquidEnumerable -Value (Resolve-LiquidExpression -Expression $node.CollectionExpression -Runtime $Runtime))
                 if ($items.Count -eq 0) { continue }
-                # TODO: Add Liquid tag support for tablerowloop.
+                # tablerowloop tracks row and column position for each generated cell.
                 $outerTablerowLoop = Resolve-LiquidVariable -Runtime $Runtime -Path 'tablerowloop'
                 $Runtime.LoopDepth++
                 try {
                     for ($index = 0; $index -lt $items.Count; $index++) {
-                        $columnIndex = ($index % $node.Columns) + 1
-                        $rowIndex = [math]::Floor($index / $node.Columns) + 1
+                        $tablerowLoop = New-LiquidTablerowLoopObject -Index $index -Length $items.Count -Columns $node.Columns -ParentLoop $outerTablerowLoop
+                        $columnIndex = [int]$tablerowLoop.col
+                        $rowIndex = [int]$tablerowLoop.row
                         if ($columnIndex -eq 1) { [void]$builder.Append('<tr class=""row' + $rowIndex + '"">') }
                         [void]$builder.Append('<td class=""col' + $columnIndex + '"">')
                         $loopScope = @{
                             $node.VariableName = $items[$index]
-                            tablerowloop       = @{
-                                col        = $columnIndex
-                                col0       = $columnIndex - 1
-                                row        = $rowIndex
-                                row0       = $rowIndex - 1
-                                index      = $index + 1
-                                index0     = $index
-                                first      = ($index -eq 0)
-                                last       = ($index -eq ($items.Count - 1))
-                                length     = $items.Count
-                                cols       = $node.Columns
-                                parentloop = $outerTablerowLoop
-                            }
+                            tablerowloop       = $tablerowLoop
                         }
                         Add-LiquidScope -Runtime $Runtime -Scope $loopScope
                         try { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime)) } finally { removeLiquidScope -Runtime $Runtime }

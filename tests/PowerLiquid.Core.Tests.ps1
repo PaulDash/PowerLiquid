@@ -109,4 +109,12 @@ Describe 'PowerLiquid core behavior' {
         Set-Content -LiteralPath $includePath -Encoding UTF8 -Value 'Included content'
         (Invoke-LiquidTemplate -Template '{% include card.txt %}' -Context @{} -Dialect JekyllLiquid -IncludeRoot $includeRoot).Trim() | Should -Be 'Included content'
     }
+
+    It 'wraps parse failures from ConvertTo-LiquidAst with command context' {
+        { ConvertTo-LiquidAst -Template '{% if page.title %}x' } | Should -Throw -ExpectedMessage 'ConvertTo-LiquidAst failed:*missing endif*'
+    }
+
+    It 'wraps render failures from Invoke-LiquidTemplate with command context' {
+        { Invoke-LiquidTemplate -Template '{% break %}' -Context @{} } | Should -Throw -ExpectedMessage 'Invoke-LiquidTemplate failed:*break tag can only be used inside for or tablerow loops*'
+    }
 }
