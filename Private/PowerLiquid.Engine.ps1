@@ -587,6 +587,72 @@ function parseLiquidForMarkup {
     }
 }
 
+function parseLiquidCycleMarkup {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Markup
+    )
+
+    # Cycle optionally accepts a group expression before a colon and then one or more expressions.
+    $groupExpression = $null
+    $valueMarkup = $Markup.Trim()
+    $colonParts = Split-LiquidDelimitedString -InputText $valueMarkup -Delimiter ':'
+    if ($colonParts.Count -gt 1) {
+        $groupExpression = [string]$colonParts[0]
+        $valueMarkup = (($colonParts | Select-Object -Skip 1) -join ':')
+    }
+
+    $valueExpressions = @()
+    foreach ($segment in (Split-LiquidDelimitedString -InputText ([string]$valueMarkup) -Delimiter ',')) {
+        $trimmedSegment = ([string]$segment).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($trimmedSegment)) {
+            $valueExpressions += $trimmedSegment
+        }
+    }
+
+    if ($valueExpressions.Count -eq 0) {
+        throw "Liquid cycle tag is invalid: '$Markup'."
+    }
+
+    return [pscustomobject]@{
+        GroupExpression  = if ([string]::IsNullOrWhiteSpace($groupExpression)) { $null } else { $groupExpression.Trim() }
+        ValueExpressions = $valueExpressions
+    }
+}
+
+function parseLiquidTablerowMarkup {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Markup
+    )
+
+    if ($Markup -notmatch '^([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(.+)$') {
+        throw "Liquid tablerow tag is invalid: '$Markup'."
+    }
+
+    $variableName = $matches[1]
+    $remainder = $matches[2]
+    if ($remainder -notmatch '^(.*?)(?:\s+cols\s*:\s*(\d+))?$') {
+        throw "Liquid tablerow tag is invalid: '$Markup'."
+    }
+
+    $collectionExpression = $matches[1].Trim()
+    $columns = if ($matches[2]) { [int]$matches[2] } else { 1 }
+    if ([string]::IsNullOrWhiteSpace($collectionExpression) -or $columns -lt 1) {
+        throw "Liquid tablerow tag is invalid: '$Markup'."
+    }
+
+    return [pscustomobject]@{
+        VariableName         = $variableName
+        CollectionExpression = $collectionExpression
+        Columns              = $columns
+    }
+}
+
 function parseLiquidNode {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -609,19 +675,13 @@ function parseLiquidNode {
         $token = $Tokens[$Index.Value]
 
         if ($token.Type -eq 'Text') {
-            [void]$nodes.Add([pscustomobject]@{
-                Type  = 'Text'
-                Value = $token.Value
-            })
+            [void]$nodes.Add([pscustomobject]@{ Type = 'Text'; Value = $token.Value })
             $Index.Value++
             continue
         }
 
         if ($token.Type -eq 'Output') {
-            [void]$nodes.Add([pscustomobject]@{
-                Type       = 'Output'
-                Expression = $token.Value
-            })
+            [void]$nodes.Add([pscustomobject]@{ Type = 'Output'; Expression = $token.Value })
             $Index.Value++
             continue
         }
@@ -664,7 +724,6 @@ function parseLiquidNode {
                 })
             }
             'if' {
-                # Parse chained if / elsif / else branches into one conditional node.
                 $branches = New-Object System.Collections.ArrayList
                 $condition = $tagParts.Markup
                 $Index.Value++
@@ -720,7 +779,6 @@ function parseLiquidNode {
                 }
             }
             'for' {
-                # Parse for blocks with an optional else branch for empty collections.
                 $forMarkup = parseLiquidForMarkup -Markup $tagParts.Markup
                 $Index.Value++
                 $bodyNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endfor') -Registry $Registry
@@ -747,8 +805,119 @@ function parseLiquidNode {
                     Else                 = $elseNodes
                 })
             }
+            'case' {
+                $caseExpression = $tagParts.Markup
+                $Index.Value++
+                $whenBranches = New-Object System.Collections.ArrayList
+                $elseNodes = @()
+
+                :caseLoop while ($Index.Value -lt $Tokens.Count) {
+                    $currentTag = getLiquidTagPart -Markup $Tokens[$Index.Value].Value
+                    switch ($currentTag.Name) {
+                        'when' {
+                            $whenExpressions = @()
+                            foreach ($segment in (Split-LiquidDelimitedString -InputText $currentTag.Markup -Delimiter ',')) {
+                                $trimmedSegment = ([string]$segment).Trim()
+                                if (-not [string]::IsNullOrWhiteSpace($trimmedSegment)) {
+                                    $whenExpressions += $trimmedSegment
+                                }
+                            }
+                            if ($whenExpressions.Count -eq 0) {
+                                throw "Liquid case when tag is invalid: '$($Tokens[$Index.Value].Value)'."
+                            }
+
+                            $Index.Value++
+                            $whenNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('when', 'else', 'endcase') -Registry $Registry
+                            [void]$whenBranches.Add([pscustomobject]@{
+                                Values = $whenExpressions
+                                Nodes  = $whenNodes
+                            })
+                            continue caseLoop
+                        }
+                        'else' {
+                            $Index.Value++
+                            $elseNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('endcase') -Registry $Registry
+                            if ($Index.Value -ge $Tokens.Count) {
+                                throw "Liquid case tag is missing endcase."
+                            }
+
+                            $Index.Value++
+                            break caseLoop
+                        }
+                        'endcase' {
+                            $Index.Value++
+                            break caseLoop
+                        }
+                        default {
+                            throw "Liquid case tag requires when, else, or endcase tags."
+                        }
+                    }
+                }
+
+                [void]$nodes.Add([pscustomobject]@{
+                    Type       = 'Case'
+                    Expression = $caseExpression
+                    Whens      = @($whenBranches.ToArray())
+                    Else       = $elseNodes
+                })
+            }
+            'cycle' {
+                $cycleMarkup = parseLiquidCycleMarkup -Markup $tagParts.Markup
+                [void]$nodes.Add([pscustomobject]@{
+                    Type             = 'Cycle'
+                    GroupExpression  = $cycleMarkup.GroupExpression
+                    ValueExpressions = $cycleMarkup.ValueExpressions
+                })
+                $Index.Value++
+            }
+            'increment' {
+                if ($tagParts.Markup -notmatch '^([A-Za-z_][A-Za-z0-9_]*)$') {
+                    throw "Liquid increment tag is invalid: '$($token.Value)'."
+                }
+
+                [void]$nodes.Add([pscustomobject]@{
+                    Type = 'Increment'
+                    Name = $matches[1]
+                })
+                $Index.Value++
+            }
+            'decrement' {
+                if ($tagParts.Markup -notmatch '^([A-Za-z_][A-Za-z0-9_]*)$') {
+                    throw "Liquid decrement tag is invalid: '$($token.Value)'."
+                }
+
+                [void]$nodes.Add([pscustomobject]@{
+                    Type = 'Decrement'
+                    Name = $matches[1]
+                })
+                $Index.Value++
+            }
+            'break' {
+                [void]$nodes.Add([pscustomobject]@{ Type = 'Break' })
+                $Index.Value++
+            }
+            'continue' {
+                [void]$nodes.Add([pscustomobject]@{ Type = 'Continue' })
+                $Index.Value++
+            }
+            'tablerow' {
+                $tablerowMarkup = parseLiquidTablerowMarkup -Markup $tagParts.Markup
+                $Index.Value++
+                $bodyNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('endtablerow') -Registry $Registry
+                if ($Index.Value -ge $Tokens.Count) {
+                    throw "Liquid tablerow tag is missing endtablerow."
+                }
+
+                $Index.Value++
+                [void]$nodes.Add([pscustomobject]@{
+                    Type                 = 'Tablerow'
+                    VariableName         = $tablerowMarkup.VariableName
+                    CollectionExpression = $tablerowMarkup.CollectionExpression
+                    Columns              = $tablerowMarkup.Columns
+                    Nodes                = $bodyNodes
+                })
+            }
             'unless' {
-                # Unless behaves like an inverted if with an optional else branch.
                 $condition = $tagParts.Markup
                 $Index.Value++
                 $bodyNodes = parseLiquidNode -Tokens $Tokens -Index $Index -EndTags @('else', 'endunless') -Registry $Registry
@@ -775,17 +944,11 @@ function parseLiquidNode {
                 })
             }
             'comment' {
-                # Comment blocks are parsed but discarded from the rendered output.
                 $Index.Value++
                 while ($Index.Value -lt $Tokens.Count) {
-                    $commentToken = $Tokens[$Index.Value]
-                    if ($commentToken.Type -eq 'Tag') {
-                        $commentTag = getLiquidTagPart -Markup $commentToken.Value
-                        if ($commentTag.Name -eq 'endcomment') {
-                            break
-                        }
+                    if ($Tokens[$Index.Value].Type -eq 'Tag' -and (getLiquidTagPart -Markup $Tokens[$Index.Value].Value).Name -eq 'endcomment') {
+                        break
                     }
-
                     $Index.Value++
                 }
 
@@ -796,16 +959,12 @@ function parseLiquidNode {
                 $Index.Value++
             }
             'raw' {
-                # Raw blocks pass their inner source through without further Liquid parsing.
                 $Index.Value++
                 $rawBuilder = New-Object System.Text.StringBuilder
                 while ($Index.Value -lt $Tokens.Count) {
                     $rawToken = $Tokens[$Index.Value]
-                    if ($rawToken.Type -eq 'Tag') {
-                        $rawTag = getLiquidTagPart -Markup $rawToken.Value
-                        if ($rawTag.Name -eq 'endraw') {
-                            break
-                        }
+                    if ($rawToken.Type -eq 'Tag' -and (getLiquidTagPart -Markup $rawToken.Value).Name -eq 'endraw') {
+                        break
                     }
 
                     [void]$rawBuilder.Append($rawToken.Raw)
@@ -862,9 +1021,9 @@ function parseLiquidNode {
 
                 if ($null -ne $customTagHandler) {
                     [void]$nodes.Add([pscustomobject]@{
-                        Type    = 'CustomTag'
-                        Name    = $tagParts.Name
-                        Markup  = $tagParts.Markup
+                        Type   = 'CustomTag'
+                        Name   = $tagParts.Name
+                        Markup = $tagParts.Markup
                     })
                     $Index.Value++
                     continue
@@ -892,39 +1051,19 @@ function addLiquidAstLocation {
         [ref]$TokenIndex
     )
 
-    # Walk the parsed node tree against the original token stream so diagnostics can report exact source locations.
     foreach ($node in $Nodes) {
         switch ($node.Type) {
-            'Text' {
-                $token = $Tokens[$TokenIndex.Value]
-                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
-                $TokenIndex.Value++
-            }
-            'Output' {
-                $token = $Tokens[$TokenIndex.Value]
-                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
-                $TokenIndex.Value++
-            }
-            'Assign' {
-                $token = $Tokens[$TokenIndex.Value]
-                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
-                $TokenIndex.Value++
-            }
-            'Include' {
-                $token = $Tokens[$TokenIndex.Value]
-                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
-                $TokenIndex.Value++
-            }
-            'IncludeRelative' {
-                $token = $Tokens[$TokenIndex.Value]
-                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
-                $TokenIndex.Value++
-            }
-            'CustomTag' {
-                $token = $Tokens[$TokenIndex.Value]
-                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
-                $TokenIndex.Value++
-            }
+            'Text' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Output' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Assign' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Include' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'IncludeRelative' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Cycle' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Increment' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Decrement' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Break' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Continue' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'CustomTag' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Capture' {
                 $startToken = $Tokens[$TokenIndex.Value]
                 $TokenIndex.Value++
@@ -939,18 +1078,10 @@ function addLiquidAstLocation {
                 $branchIndex = 0
                 foreach ($branch in $node.Branches) {
                     addLiquidAstLocation -Nodes $branch.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
-                    if ($branchIndex + 1 -lt $node.Branches.Count) {
-                        $TokenIndex.Value++
-                    }
-
+                    if ($branchIndex + 1 -lt $node.Branches.Count) { $TokenIndex.Value++ }
                     $branchIndex++
                 }
-
-                if ($node.Else.Count -gt 0) {
-                    $TokenIndex.Value++
-                    addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex
-                }
-
+                if ($node.Else.Count -gt 0) { $TokenIndex.Value++; addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex }
                 $endToken = $Tokens[$TokenIndex.Value]
                 Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
                 $TokenIndex.Value++
@@ -959,11 +1090,27 @@ function addLiquidAstLocation {
                 $startToken = $Tokens[$TokenIndex.Value]
                 $TokenIndex.Value++
                 addLiquidAstLocation -Nodes $node.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
-                if ($node.Else.Count -gt 0) {
-                    $TokenIndex.Value++
-                    addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex
+                if ($node.Else.Count -gt 0) { $TokenIndex.Value++; addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex }
+                $endToken = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
+                $TokenIndex.Value++
+            }
+            'Case' {
+                $startToken = $Tokens[$TokenIndex.Value]
+                $TokenIndex.Value++
+                for ($whenIndex = 0; $whenIndex -lt $node.Whens.Count; $whenIndex++) {
+                    addLiquidAstLocation -Nodes $node.Whens[$whenIndex].Nodes -Tokens $Tokens -TokenIndex $TokenIndex
+                    if ($whenIndex + 1 -lt $node.Whens.Count) { $TokenIndex.Value++ }
                 }
-
+                if ($node.Else.Count -gt 0) { $TokenIndex.Value++; addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex }
+                $endToken = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
+                $TokenIndex.Value++
+            }
+            'Tablerow' {
+                $startToken = $Tokens[$TokenIndex.Value]
+                $TokenIndex.Value++
+                addLiquidAstLocation -Nodes $node.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
                 $endToken = $Tokens[$TokenIndex.Value]
                 Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
                 $TokenIndex.Value++
@@ -972,18 +1119,12 @@ function addLiquidAstLocation {
                 $startToken = $Tokens[$TokenIndex.Value]
                 $TokenIndex.Value++
                 addLiquidAstLocation -Nodes $node.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
-                if ($node.Else.Count -gt 0) {
-                    $TokenIndex.Value++
-                    addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex
-                }
-
+                if ($node.Else.Count -gt 0) { $TokenIndex.Value++; addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex }
                 $endToken = $Tokens[$TokenIndex.Value]
                 Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
                 $TokenIndex.Value++
             }
-            default {
-                throw "AST location assignment does not support node type '$($node.Type)'."
-            }
+            default { throw "AST location assignment does not support node type '$($node.Type)'." }
         }
     }
 }
@@ -1720,7 +1861,6 @@ function newLiquidRuntime {
         [hashtable]$Registry
     )
 
-    # The runtime keeps a scope stack so assign/capture can add temporary variables during rendering.
     $scopes = New-Object System.Collections.ArrayList
     [void]$scopes.Add((ConvertToLiquidSafeValue -Value $Context -Registry $Registry))
 
@@ -1732,6 +1872,10 @@ function newLiquidRuntime {
         RelativeIncludeRoot = $RelativeIncludeRoot
         IncludeStack        = @($IncludeStack)
         Registry            = if ($null -ne $Registry) { $Registry } else { newLiquidExtensionRegistry }
+        Counters            = @{}
+        CycleStates         = @{}
+        LoopDepth           = 0
+        ControlFlow         = $null
     }
 }
 
@@ -1972,14 +2116,11 @@ function ConvertFrom-LiquidNode {
         [hashtable]$Runtime
     )
 
-    # Walk the parsed node tree and turn it back into rendered output text.
     $builder = New-Object System.Text.StringBuilder
 
     foreach ($node in $Nodes) {
         switch ($node.Type) {
-            'Text' {
-                [void]$builder.Append($node.Value)
-            }
+            'Text' { [void]$builder.Append($node.Value) }
             'Output' {
                 $value = Resolve-LiquidExpression -Expression $node.Expression -Runtime $Runtime
                 [void]$builder.Append((ConvertTo-LiquidOutputString -Value $value))
@@ -2001,7 +2142,6 @@ function ConvertFrom-LiquidNode {
                         break
                     }
                 }
-
                 if (-not $rendered -and $node.Else.Count -gt 0) {
                     [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime))
                 }
@@ -2016,56 +2156,135 @@ function ConvertFrom-LiquidNode {
             'For' {
                 $items = @(ConvertTo-LiquidEnumerable -Value (Resolve-LiquidExpression -Expression $node.CollectionExpression -Runtime $Runtime))
                 if ($items.Count -eq 0) {
-                    if ($node.Else.Count -gt 0) {
-                        [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime))
-                    }
+                    if ($node.Else.Count -gt 0) { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime)) }
                     continue
                 }
-
                 $outerForLoop = Resolve-LiquidVariable -Runtime $Runtime -Path 'forloop'
-                for ($index = 0; $index -lt $items.Count; $index++) {
-                    $loopScope = @{
-                        $node.VariableName = $items[$index]
-                        forloop            = @{
-                            name     = $node.VariableName
-                            length   = $items.Count
-                            index    = $index + 1
-                            index0   = $index
-                            rindex   = $items.Count - $index
-                            rindex0  = $items.Count - $index - 1
-                            first    = ($index -eq 0)
-                            last     = ($index -eq ($items.Count - 1))
-                            parentloop = $outerForLoop
+                $Runtime.LoopDepth++
+                try {
+                    for ($index = 0; $index -lt $items.Count; $index++) {
+                        $loopScope = @{
+                            $node.VariableName = $items[$index]
+                            forloop            = @{
+                                name       = $node.VariableName
+                                length     = $items.Count
+                                index      = $index + 1
+                                index0     = $index
+                                rindex     = $items.Count - $index
+                                rindex0    = $items.Count - $index - 1
+                                first      = ($index -eq 0)
+                                last       = ($index -eq ($items.Count - 1))
+                                parentloop = $outerForLoop
+                            }
+                        }
+                        Add-LiquidScope -Runtime $Runtime -Scope $loopScope
+                        try { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime)) } finally { removeLiquidScope -Runtime $Runtime }
+                        if ($Runtime.ControlFlow -eq 'Continue') { $Runtime.ControlFlow = $null; continue }
+                        if ($Runtime.ControlFlow -eq 'Break') { $Runtime.ControlFlow = $null; break }
+                    }
+                } finally { $Runtime.LoopDepth-- }
+            }
+            'Case' {
+                $caseValue = Resolve-LiquidExpression -Expression $node.Expression -Runtime $Runtime
+                $matched = $false
+                foreach ($when in $node.Whens) {
+                    foreach ($valueExpression in $when.Values) {
+                        $candidate = Resolve-LiquidExpression -Expression $valueExpression -Runtime $Runtime
+                        if ($caseValue -eq $candidate) {
+                            [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $when.Nodes -Runtime $Runtime))
+                            $matched = $true
+                            break
                         }
                     }
-
-                    Add-LiquidScope -Runtime $Runtime -Scope $loopScope
-                    try {
-                        [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime))
-                    } finally {
-                        removeLiquidScope -Runtime $Runtime
-                    }
+                    if ($matched) { break }
                 }
-            }            'Include' {
-                [void]$builder.Append((Invoke-LiquidInclude -Node $node -Runtime $Runtime))
+                if (-not $matched -and $node.Else.Count -gt 0) { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Else -Runtime $Runtime)) }
             }
-            'IncludeRelative' {
-                [void]$builder.Append((Invoke-LiquidRelativeInclude -Node $node -Runtime $Runtime))
+            'Cycle' {
+                $groupKey = if ([string]::IsNullOrWhiteSpace($node.GroupExpression)) { ($node.ValueExpressions -join '|') } else { ConvertTo-LiquidOutputString -Value (Resolve-LiquidExpression -Expression $node.GroupExpression -Runtime $Runtime) }
+                if (-not $Runtime.CycleStates.ContainsKey($groupKey)) { $Runtime.CycleStates[$groupKey] = 0 }
+                $position = [int]$Runtime.CycleStates[$groupKey]
+                $expressionIndex = $position % $node.ValueExpressions.Count
+                $cycleValue = Resolve-LiquidExpression -Expression $node.ValueExpressions[$expressionIndex] -Runtime $Runtime
+                [void]$builder.Append((ConvertTo-LiquidOutputString -Value $cycleValue))
+                $Runtime.CycleStates[$groupKey] = $position + 1
             }
+            'Increment' {
+                if (-not $Runtime.Counters.ContainsKey($node.Name)) { $Runtime.Counters[$node.Name] = 0 }
+                $currentValue = [int]$Runtime.Counters[$node.Name]
+                [void]$builder.Append([string]$currentValue)
+                $Runtime.Counters[$node.Name] = $currentValue + 1
+            }
+            'Decrement' {
+                if (-not $Runtime.Counters.ContainsKey($node.Name)) { $Runtime.Counters[$node.Name] = 0 }
+                $Runtime.Counters[$node.Name] = [int]$Runtime.Counters[$node.Name] - 1
+                [void]$builder.Append([string]$Runtime.Counters[$node.Name])
+            }
+            'Break' {
+                if ($Runtime.LoopDepth -lt 1) { throw 'Liquid break tag can only be used inside for or tablerow loops.' }
+                $Runtime.ControlFlow = 'Break'
+                return $builder.ToString()
+            }
+            'Continue' {
+                if ($Runtime.LoopDepth -lt 1) { throw 'Liquid continue tag can only be used inside for or tablerow loops.' }
+                $Runtime.ControlFlow = 'Continue'
+                return $builder.ToString()
+            }
+            'Tablerow' {
+                $items = @(ConvertTo-LiquidEnumerable -Value (Resolve-LiquidExpression -Expression $node.CollectionExpression -Runtime $Runtime))
+                if ($items.Count -eq 0) { continue }
+                $outerTablerowLoop = Resolve-LiquidVariable -Runtime $Runtime -Path 'tablerowloop'
+                $Runtime.LoopDepth++
+                try {
+                    for ($index = 0; $index -lt $items.Count; $index++) {
+                        $columnIndex = ($index % $node.Columns) + 1
+                        $rowIndex = [math]::Floor($index / $node.Columns) + 1
+                        if ($columnIndex -eq 1) { [void]$builder.Append('<tr class=""row' + $rowIndex + '"">') }
+                        [void]$builder.Append('<td class=""col' + $columnIndex + '"">')
+                        $loopScope = @{
+                            $node.VariableName = $items[$index]
+                            tablerowloop       = @{
+                                col        = $columnIndex
+                                col0       = $columnIndex - 1
+                                row        = $rowIndex
+                                row0       = $rowIndex - 1
+                                index      = $index + 1
+                                index0     = $index
+                                first      = ($index -eq 0)
+                                last       = ($index -eq ($items.Count - 1))
+                                length     = $items.Count
+                                cols       = $node.Columns
+                                parentloop = $outerTablerowLoop
+                            }
+                        }
+                        Add-LiquidScope -Runtime $Runtime -Scope $loopScope
+                        try { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime)) } finally { removeLiquidScope -Runtime $Runtime }
+                        [void]$builder.Append('</td>')
+                        $shouldCloseRow = (($columnIndex -eq $node.Columns) -or ($index -eq ($items.Count - 1)))
+                        if ($Runtime.ControlFlow -eq 'Continue') { $Runtime.ControlFlow = $null }
+                        if ($shouldCloseRow) { [void]$builder.Append('</tr>') }
+                        if ($Runtime.ControlFlow -eq 'Break') {
+                            $Runtime.ControlFlow = $null
+                            if (-not $shouldCloseRow) { [void]$builder.Append('</tr>') }
+                            break
+                        }
+                    }
+                } finally { $Runtime.LoopDepth-- }
+            }
+            'Include' { [void]$builder.Append((Invoke-LiquidInclude -Node $node -Runtime $Runtime)) }
+            'IncludeRelative' { [void]$builder.Append((Invoke-LiquidRelativeInclude -Node $node -Runtime $Runtime)) }
             'CustomTag' {
                 $customTag = Get-LiquidCustomTag -Name $node.Name -Runtime $Runtime
-                if ($null -eq $customTag) {
-                    throw "Liquid tag '$($node.Name)' is not supported in the '$($Runtime.Dialect)' dialect."
-                }
-
+                if ($null -eq $customTag) { throw "Liquid tag '$($node.Name)' is not supported in the '$($Runtime.Dialect)' dialect." }
                 $invocation = newLiquidExtensionInvocation -Runtime $Runtime
                 $invocation['Name'] = $node.Name
                 $invocation['Markup'] = $node.Markup
                 [void]$builder.Append((ConvertTo-LiquidOutputString -Value (& $customTag $invocation)))
             }
-            default {
-                throw "Liquid node type '$($node.Type)' is not supported."
-            }
+            default { throw "Liquid node type '$($node.Type)' is not supported." }
+        }
+        if ($Runtime.ControlFlow) {
+            return $builder.ToString()
         }
     }
 
@@ -2200,6 +2419,9 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+
+
 
 
 

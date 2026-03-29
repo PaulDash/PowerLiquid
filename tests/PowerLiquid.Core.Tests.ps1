@@ -1,4 +1,4 @@
-Describe 'PowerLiquid module' {
+Describe 'PowerLiquid core behavior' {
     BeforeAll {
         $projectRoot = Split-Path -Parent $PSScriptRoot
         $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'PowerLiquid.psd1'
@@ -6,10 +6,7 @@ Describe 'PowerLiquid module' {
 
         class DemoTrustedType {
             [int]$Number
-
-            DemoTrustedType([int]$Number) {
-                $this.Number = $Number
-            }
+            DemoTrustedType([int]$Number) { $this.Number = $Number }
         }
     }
 
@@ -24,7 +21,6 @@ Describe 'PowerLiquid module' {
 
     It 'parses templates into a documented AST root object' {
         $ast = ConvertTo-LiquidAst -Template '{% if page.title %}{{ page.title }}{% endif %}' -Dialect JekyllLiquid -IncludeTokens
-
         $ast.PSTypeNames | Should -Contain 'PowerLiquid.Ast'
         $ast.Dialect | Should -Be 'JekyllLiquid'
         $ast.Nodes.Count | Should -Be 1
@@ -33,16 +29,9 @@ Describe 'PowerLiquid module' {
     }
 
     It 'preserves line and column locations on AST nodes and tokens' {
-        $template = [string]::Join([Environment]::NewLine, @(
-            '{% if page.title %}',
-            '  {{ page.title }}',
-            '{% endif %}'
-        ))
-
+        $template = [string]::Join([Environment]::NewLine, @('{% if page.title %}','  {{ page.title }}','{% endif %}'))
         $ast = ConvertTo-LiquidAst -Template $template -Dialect JekyllLiquid -IncludeTokens
-
         $outputToken = $ast.Tokens | Where-Object { $_.Type -eq 'Output' } | Select-Object -First 1
-
         $ast.Nodes[0].Location.StartLine | Should -Be 1
         $ast.Nodes[0].Location.StartColumn | Should -Be 1
         $ast.Nodes[0].Location.EndLine | Should -Be 3
@@ -52,43 +41,22 @@ Describe 'PowerLiquid module' {
     }
 
     It 'renders a basic object expression' {
-        $result = Invoke-LiquidTemplate -Template 'Hello {{ user.name }}' -Context @{
-            user = @{
-                name = 'Paul'
-            }
-        }
-
+        $result = Invoke-LiquidTemplate -Template 'Hello {{ user.name }}' -Context @{ user = @{ name = 'Paul' } }
         $result | Should -Be 'Hello Paul'
     }
 
     It 'does not execute script-backed properties from context data' {
         $script:dangerousGetterInvoked = $false
-        $user = [pscustomobject]@{
-            Name = 'Paul'
-        }
-
-        Add-Member -InputObject $user -MemberType ScriptProperty -Name Dangerous -Value {
-            $script:dangerousGetterInvoked = $true
-            throw 'This getter should never run during template evaluation.'
-        }
-
-        $result = Invoke-LiquidTemplate -Template 'Hello {{ user.Dangerous }}' -Context @{
-            user = $user
-        }
-
+        $user = [pscustomobject]@{ Name = 'Paul' }
+        Add-Member -InputObject $user -MemberType ScriptProperty -Name Dangerous -Value { $script:dangerousGetterInvoked = $true; throw 'This getter should never run during template evaluation.' }
+        $result = Invoke-LiquidTemplate -Template 'Hello {{ user.Dangerous }}' -Context @{ user = $user }
         $result | Should -Be 'Hello '
         $script:dangerousGetterInvoked | Should -BeFalse
     }
 
     It 'supports host-registered custom tags' {
         $registry = New-LiquidExtensionRegistry
-
-        Register-LiquidTag -Registry $registry -Dialect JekyllLiquid -Name hello -Handler {
-            param($Invocation)
-            [void]$Invocation
-            return 'Hello from a host'
-        }
-
+        Register-LiquidTag -Registry $registry -Dialect JekyllLiquid -Name hello -Handler { param($Invocation) [void]$Invocation; 'Hello from a host' }
         $result = Invoke-LiquidTemplate -Template '{% hello %}' -Context @{} -Dialect JekyllLiquid -Registry $registry
         $result | Should -Be 'Hello from a host'
     }
@@ -96,11 +64,7 @@ Describe 'PowerLiquid module' {
     It 'allows explicitly trusted object types to expose their properties' {
         $registry = New-LiquidExtensionRegistry
         Register-LiquidTrustedType -Registry $registry -TypeName DemoTrustedType
-
-        $result = Invoke-LiquidTemplate -Template '{{ event.number }}' -Context @{
-            event = [DemoTrustedType]::new(2026)
-        } -Registry $registry
-
+        $result = Invoke-LiquidTemplate -Template '{{ event.number }}' -Context @{ event = [DemoTrustedType]::new(2026) } -Registry $registry
         $result | Should -Be '2026'
     }
 
@@ -110,13 +74,10 @@ Describe 'PowerLiquid module' {
         $postPath = Join-Path -Path $postsRoot -ChildPath '2026-03-29-example.md'
         $snippetDirectory = Join-Path -Path $postsRoot -ChildPath 'snippets'
         $snippetPath = Join-Path -Path $snippetDirectory -ChildPath 'card.txt'
-
         [void](New-Item -Path $snippetDirectory -ItemType Directory -Force)
         Set-Content -LiteralPath $postPath -Encoding UTF8 -Value '{% include_relative snippets/card.txt %}'
         Set-Content -LiteralPath $snippetPath -Encoding UTF8 -Value 'Relative include content'
-
         $result = Invoke-LiquidTemplate -Template (Get-Content -LiteralPath $postPath -Raw) -Context @{} -Dialect JekyllLiquid -CurrentFilePath $postPath -RelativeIncludeRoot $postsRoot
-
         $result.Trim() | Should -Be 'Relative include content'
     }
 
@@ -125,16 +86,9 @@ Describe 'PowerLiquid module' {
         $postsRoot = Join-Path -Path $templateRoot -ChildPath '_posts'
         $postPath = Join-Path -Path $postsRoot -ChildPath '2026-03-29-example.md'
         $outsidePath = Join-Path -Path $templateRoot -ChildPath 'outside.txt'
-
         [void](New-Item -Path $postsRoot -ItemType Directory -Force)
         Set-Content -LiteralPath $postPath -Encoding UTF8 -Value '{% include_relative ../outside.txt %}'
         Set-Content -LiteralPath $outsidePath -Encoding UTF8 -Value 'Outside'
-
-        {
-            Invoke-LiquidTemplate -Template (Get-Content -LiteralPath $postPath -Raw) -Context @{} -Dialect JekyllLiquid -CurrentFilePath $postPath -RelativeIncludeRoot $postsRoot
-        } | Should -Throw -ExpectedMessage '*include_relative*outside the allowed relative include root*'
+        { Invoke-LiquidTemplate -Template (Get-Content -LiteralPath $postPath -Raw) -Context @{} -Dialect JekyllLiquid -CurrentFilePath $postPath -RelativeIncludeRoot $postsRoot } | Should -Throw -ExpectedMessage '*include_relative*outside the allowed relative include root*'
     }
 }
-
-
-
