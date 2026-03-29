@@ -24,7 +24,7 @@
 
     FileList = @(
         'README.md'
-        'LICENSE'
+        'LICENSE.md'
         'PowerLiquid.psd1'
         'PowerLiquid.psm1'
         'Private\PowerLiquid.Engine.ps1'
@@ -42,8 +42,8 @@
         PSData = @{
             Tags         = @('Liquid', 'Template', 'TemplateEngine', 'PSEdition_Core')
             ProjectURI   = 'https://github.com/PaulDash/PowerLiquid'
-            LicenseURI   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE?raw=true'
-            IconURI      = 'https://github.com/PaulDash/PowerLiquid/blob/main/res/Icon_85x85.png?raw=true'
+            LicenseURI   = 'https://github.com/PaulDash/PowerLiquid/raw/main/LICENSE.md'
+            IconURI      = 'https://github.com/PaulDash/PowerLiquid/raw/main/res/Icon_85x85.png'
             ReleaseNotes = 'PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rendering Liquid templates.
 
             Goals:
