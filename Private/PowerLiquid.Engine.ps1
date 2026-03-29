@@ -1453,6 +1453,32 @@ function ConvertTo-LiquidOutputString {
     return [string]$Value
 }
 
+function ConvertTo-LiquidNumericValue {
+    [CmdletBinding()]
+    [OutputType([double])]
+    param(
+        $Value
+    )
+
+    if ($null -eq $Value) {
+        return 0
+    }
+
+    if ($Value -is [int] -or $Value -is [long] -or $Value -is [double] -or $Value -is [single] -or $Value -is [decimal]) {
+        return [double]$Value
+    }
+
+    if ($Value -is [string]) {
+        $trimmed = $Value.Trim()
+        $number = 0.0
+        if ([double]::TryParse($trimmed, [System.Globalization.NumberStyles]::Any, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$number)) {
+            return $number
+        }
+    }
+
+    throw "Liquid value '$Value' is not a number."
+}
+
 function Test-LiquidTruthy {
     [CmdletBinding()]
     [OutputType([bool])]
@@ -1602,6 +1628,33 @@ function Invoke-LiquidFilter {
             if ($InputObject -is [System.Collections.ICollection]) { return $InputObject.Count }
             if ($InputObject -is [System.Collections.IDictionary]) { return $InputObject.Count }
             return (ConvertTo-LiquidOutputString -Value $InputObject).Length
+        }
+        'plus' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            return $left + $right
+        }
+        'minus' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            return $left - $right
+        }
+        'times' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            return $left * $right
+        }
+        'divided_by' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            if ($right -eq 0) { throw 'Liquid divided_by by zero is not allowed.' }
+            return $left / $right
+        }
+        'modulo' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            if ($right -eq 0) { throw 'Liquid modulo by zero is not allowed.' }
+            return $left % $right
         }
         'split' { return (ConvertTo-LiquidOutputString -Value $InputObject).Split([string]$Arguments[0], [System.StringSplitOptions]::None) }
         'join' {

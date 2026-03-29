@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Numeric filter support: plus, minus, times, divided_by, modulo
+
 ## [0.8.14] - 2026-03-29
 
 ### Added
