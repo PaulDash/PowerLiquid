@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completed the current built-in Liquid filter surface with where as the final collection filter milestone
 - Added command-level error wrapping across the exported functions so parse, render, and registry failures surface with clearer entry-point context
 - Added inline section comments across the module loader, public command wrappers, and major engine sections
+- Added built-in support for the Liquid `echo` tag
+- Added built-in support for the Liquid `echo` tag
+- Added built-in support for the Liquid `echo` tag
 
 ### Changed
 

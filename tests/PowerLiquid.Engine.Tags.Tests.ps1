@@ -5,10 +5,10 @@ Describe 'PowerLiquid advanced engine tags' {
         Import-Module $moduleManifestPath -Force
     }
 
-    It 'supports case, cycle, increment, and decrement tags' {
-        $template = "{% case page.kind %}{% when 'note', 'post' %}kind{% else %}other{% endcase %}|{% cycle 'odd', 'even' %}|{% cycle 'odd', 'even' %}|{% increment counter %}|{% increment counter %}|{% decrement counter %}"
+    It 'supports case, cycle, increment, decrement, and echo tags' {
+        $template = "{% case page.kind %}{% when 'note', 'post' %}kind{% else %}other{% endcase %}|{% cycle 'odd', 'even' %}|{% cycle 'odd', 'even' %}|{% increment counter %}|{% increment counter %}|{% decrement counter %}|{% echo page.kind | upcase %}"
         $result = Invoke-LiquidTemplate -Template $template -Context @{ page = @{ kind = 'note' } }
-        $result | Should -Be 'kind|odd|even|0|1|1'
+        $result | Should -Be 'kind|odd|even|0|1|1|NOTE'
     }
 
     It 'supports break and continue inside for loops' {
@@ -39,13 +39,14 @@ Describe 'PowerLiquid advanced engine tags' {
         { Invoke-LiquidTemplate -Template '{% break %}' -Context @{} } | Should -Throw -ExpectedMessage '*break tag can only be used inside for or tablerow loops*'
     }
 
-    It 'parses AST nodes for case and loop-control tags' {
-        $template = "{% case page.kind %}{% when 'note' %}x{% endcase %}{% cycle 'odd', 'even' %}{% increment count %}{% decrement count %}"
+    It 'parses AST nodes for case, echo, and loop-control tags' {
+        $template = "{% case page.kind %}{% when 'note' %}x{% endcase %}{% echo page.kind | upcase %}{% cycle 'odd', 'even' %}{% increment count %}{% decrement count %}"
         $ast = ConvertTo-LiquidAst -Template $template -Dialect JekyllLiquid
         $ast.Nodes[0].Type | Should -Be 'Case'
-        $ast.Nodes[1].Type | Should -Be 'Cycle'
-        $ast.Nodes[2].Type | Should -Be 'Increment'
-        $ast.Nodes[3].Type | Should -Be 'Decrement'
+        $ast.Nodes[1].Type | Should -Be 'Echo'
+        $ast.Nodes[2].Type | Should -Be 'Cycle'
+        $ast.Nodes[3].Type | Should -Be 'Increment'
+        $ast.Nodes[4].Type | Should -Be 'Decrement'
     }
 }
 

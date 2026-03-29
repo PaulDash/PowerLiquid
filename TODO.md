@@ -9,7 +9,7 @@
 
 ### Compatibility
 
-- "echo", and "render" tag support
+- "render" tag support
 - add "liquid" tag support (from Liquid version 5.0.0)
 - support for inline comments inside tags (from version 5.4.0)
 - add "EmptyDrop" object type

@@ -1017,7 +1017,18 @@ function parseLiquidNode {
                 })
                 $Index.Value++
             }
-            # TODO: Add Liquid tag support for echo.
+            'echo' {
+                if ([string]::IsNullOrWhiteSpace($tagParts.Markup)) {
+                    throw "Liquid echo tag is invalid: '$($token.Value)'."
+                }
+
+                # echo reuses the normal expression pipeline without introducing a new block structure.
+                [void]$nodes.Add([pscustomobject]@{
+                    Type       = 'Echo'
+                    Expression = $tagParts.Markup
+                })
+                $Index.Value++
+            }
             # TODO: Add Liquid tag support for render.
             '' {
                 $Index.Value++
@@ -1081,7 +1092,7 @@ function addLiquidAstLocation {
             'Cycle' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Increment' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Decrement' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
-            'Break' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Echo' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }            'Break' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Continue' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'CustomTag' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Capture' {
@@ -2728,6 +2739,11 @@ function ConvertFrom-LiquidNode {
                 if (-not $Runtime.Counters.ContainsKey($node.Name)) { $Runtime.Counters[$node.Name] = 0 }
                 $Runtime.Counters[$node.Name] = [int]$Runtime.Counters[$node.Name] - 1
                 [void]$builder.Append([string]$Runtime.Counters[$node.Name])
+            }
+            'Echo' {
+                # echo renders a tag expression through the same resolver used by output markup.
+                $value = Resolve-LiquidExpression -Expression $node.Expression -Runtime $Runtime
+                [void]$builder.Append((ConvertTo-LiquidOutputString -Value $value))
             }
             'Break' {
                 if ($Runtime.LoopDepth -lt 1) { throw 'Liquid break tag can only be used inside for or tablerow loops.' }
