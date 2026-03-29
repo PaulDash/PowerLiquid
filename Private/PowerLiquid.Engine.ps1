@@ -585,6 +585,70 @@ function parseLiquidIncludeMarkup {
     }
 }
 
+function parseLiquidRenderMarkup {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Markup
+    )
+
+    # render accepts a target, optional with/for object binding, and optional key:value parameters.
+    $segments = Split-LiquidDelimitedString -InputText $Markup -Delimiter ','
+    if ($segments.Count -eq 0) {
+        throw "Liquid render tag is invalid: '$Markup'."
+    }
+
+    $head = ([string]$segments[0]).Trim()
+    if ([string]::IsNullOrWhiteSpace($head)) {
+        throw "Liquid render tag is invalid: '$Markup'."
+    }
+
+    $targetExpression = $head
+    $mode = $null
+    $bindingExpression = $null
+    $alias = $null
+
+    if ($head -match '^(?<target>("([^"\\]|\\.)*"|''([^''\\]|\\.)*''|\S+))\s+(?<mode>with|for)\s+(?<binding>.+?)(?:\s+as\s+(?<alias>[A-Za-z_][A-Za-z0-9_]*))?$') {
+        $targetExpression = $matches['target']
+        $mode = $matches['mode']
+        $bindingExpression = $matches['binding'].Trim()
+        if ($matches['alias']) {
+            $alias = $matches['alias']
+        }
+    }
+
+    $parameters = New-Object System.Collections.ArrayList
+    foreach ($segment in @($segments | Select-Object -Skip 1)) {
+        $trimmedSegment = ([string]$segment).Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmedSegment)) {
+            continue
+        }
+
+        if ($trimmedSegment -notmatch '^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.+)$') {
+            throw "Liquid render parameter is invalid: '$trimmedSegment'."
+        }
+
+        [void]$parameters.Add([pscustomobject]@{
+            Name       = $matches[1]
+            Expression = $matches[2]
+        })
+    }
+
+    if ([string]::IsNullOrWhiteSpace($alias) -and ($mode -eq 'with' -or $mode -eq 'for')) {
+        $trimmedTarget = $targetExpression.Trim("'`"")
+        $alias = [System.IO.Path]::GetFileNameWithoutExtension($trimmedTarget)
+    }
+
+    return [pscustomobject]@{
+        TargetExpression  = $targetExpression
+        Mode              = $mode
+        BindingExpression = $bindingExpression
+        Alias             = $alias
+        Parameters        = @($parameters.ToArray())
+    }
+}
+
 function parseLiquidForMarkup {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -1029,7 +1093,18 @@ function parseLiquidNode {
                 })
                 $Index.Value++
             }
-            # TODO: Add Liquid tag support for render.
+            'render' {
+                $renderMarkup = parseLiquidRenderMarkup -Markup $tagParts.Markup
+                [void]$nodes.Add([pscustomobject]@{
+                    Type              = 'Render'
+                    TargetExpression  = $renderMarkup.TargetExpression
+                    Mode              = $renderMarkup.Mode
+                    BindingExpression = $renderMarkup.BindingExpression
+                    Alias             = $renderMarkup.Alias
+                    Parameters        = $renderMarkup.Parameters
+                })
+                $Index.Value++
+            }
             '' {
                 $Index.Value++
             }
@@ -1092,7 +1167,9 @@ function addLiquidAstLocation {
             'Cycle' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Increment' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Decrement' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
-            'Echo' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }            'Break' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Echo' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Render' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
+            'Break' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Continue' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'CustomTag' { $token = $Tokens[$TokenIndex.Value]; Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force; $TokenIndex.Value++ }
             'Capture' {
@@ -2408,11 +2485,14 @@ function newLiquidRuntime {
         [hashtable]$Registry
     )
 
+
+    $rootScope = ConvertToLiquidSafeValue -Value $Context -Registry $Registry
     $scopes = New-Object System.Collections.ArrayList
-    [void]$scopes.Add((ConvertToLiquidSafeValue -Value $Context -Registry $Registry))
+    [void]$scopes.Add($rootScope)
 
     return @{
         Scopes              = $scopes
+        RootScope           = $rootScope
         Dialect             = $Dialect
         IncludeRoot         = $IncludeRoot
         CurrentFilePath     = $CurrentFilePath
@@ -2423,6 +2503,7 @@ function newLiquidRuntime {
         CycleStates         = @{}
         LoopDepth           = 0
         ControlFlow         = $null
+        RenderDepth         = 0
     }
 }
 
@@ -2488,6 +2569,39 @@ function Resolve-LiquidIncludePath {
     return $resolvedIncludePath
 }
 
+function Resolve-LiquidRenderPath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TemplateTarget,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Runtime
+    )
+
+    # render resolves from the include root and supports extensionless snippet names.
+    if ([string]::IsNullOrWhiteSpace($Runtime.IncludeRoot)) {
+        throw "Liquid render root is not configured."
+    }
+
+    $candidateTargets = New-Object System.Collections.ArrayList
+    [void]$candidateTargets.Add($TemplateTarget)
+    if ([string]::IsNullOrWhiteSpace([System.IO.Path]::GetExtension($TemplateTarget))) {
+        [void]$candidateTargets.Add("$TemplateTarget.liquid")
+    }
+
+    foreach ($candidate in $candidateTargets) {
+        try {
+            return Resolve-LiquidIncludePath -IncludeTarget $candidate -Runtime $Runtime
+        } catch {
+            continue
+        }
+    }
+
+    throw "Could not locate the render template '$TemplateTarget' in '$([System.IO.Path]::GetFullPath($Runtime.IncludeRoot))'."
+}
+
 function Resolve-LiquidRelativeIncludePath {
     [CmdletBinding()]
     [OutputType([string])]
@@ -2526,6 +2640,7 @@ function Resolve-LiquidRelativeIncludePath {
     return $resolvedIncludePath
 }
 
+
 function Invoke-LiquidInclude {
     [CmdletBinding()]
     [OutputType([string])]
@@ -2536,6 +2651,10 @@ function Invoke-LiquidInclude {
         [Parameter(Mandatory = $true)]
         [hashtable]$Runtime
     )
+
+    if ($Runtime.RenderDepth -gt 0) {
+        throw "Liquid tag 'include' cannot be used inside a template rendered with 'render'."
+    }
 
     # Include is deprecated in standard Liquid, but preserved for JekyllLiquid compatibility.
     if ($Runtime.Dialect -ne 'JekyllLiquid') {
@@ -2624,6 +2743,71 @@ function Invoke-LiquidRelativeInclude {
 
     $template = Get-Content -LiteralPath $includePath -Raw
     return Invoke-LiquidTemplate -Template $template -Context $includeContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -CurrentFilePath $includePath -RelativeIncludeRoot $Runtime.RelativeIncludeRoot -IncludeStack ($Runtime.IncludeStack + $includePath) -Registry $Runtime.Registry
+}
+
+function Invoke-LiquidRender {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        $Node,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Runtime
+    )
+
+    $templateTarget = Resolve-LiquidExpression -Expression $Node.TargetExpression -Runtime $Runtime
+    $templateName = ConvertTo-LiquidOutputString -Value $templateTarget
+    if ([string]::IsNullOrWhiteSpace($templateName)) {
+        $templateName = $Node.TargetExpression.Trim("'`"")
+    }
+
+    if ([string]::IsNullOrWhiteSpace($templateName)) {
+        throw "Liquid render target is empty."
+    }
+
+    $renderPath = Resolve-LiquidRenderPath -TemplateTarget $templateName -Runtime $Runtime
+    if ($Runtime.IncludeStack -contains $renderPath) {
+        throw "Liquid render '$templateName' is recursively rendering itself."
+    }
+
+    $template = Get-Content -LiteralPath $renderPath -Raw
+    $baseContext = @{}
+    if ($Runtime.RootScope -is [System.Collections.IDictionary]) {
+        foreach ($key in $Runtime.RootScope.Keys) {
+            $baseContext[$key] = $Runtime.RootScope[$key]
+        }
+    }
+
+    foreach ($parameter in $Node.Parameters) {
+        $baseContext[$parameter.Name] = Resolve-LiquidExpression -Expression $parameter.Expression -Runtime $Runtime
+    }
+
+    if ($Node.Mode -eq 'with') {
+        $alias = if ([string]::IsNullOrWhiteSpace($Node.Alias)) { 'item' } else { $Node.Alias }
+        $baseContext[$alias] = Resolve-LiquidExpression -Expression $Node.BindingExpression -Runtime $Runtime
+        return Invoke-LiquidTemplate -Template $template -Context $baseContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -CurrentFilePath $renderPath -RelativeIncludeRoot $Runtime.RelativeIncludeRoot -IncludeStack ($Runtime.IncludeStack + $renderPath) -Registry $Runtime.Registry -RenderDepth ($Runtime.RenderDepth + 1)
+    }
+
+    if ($Node.Mode -eq 'for') {
+        $alias = if ([string]::IsNullOrWhiteSpace($Node.Alias)) { 'item' } else { $Node.Alias }
+        $items = @(ConvertTo-LiquidEnumerable -Value (Resolve-LiquidExpression -Expression $Node.BindingExpression -Runtime $Runtime))
+        $builder = New-Object System.Text.StringBuilder
+        for ($index = 0; $index -lt $items.Count; $index++) {
+            $iterationContext = @{}
+            foreach ($key in $baseContext.Keys) {
+                $iterationContext[$key] = $baseContext[$key]
+            }
+
+            $iterationContext[$alias] = $items[$index]
+            $iterationContext['forloop'] = New-LiquidForLoopObject -Index $index -Length $items.Count -ParentLoop $null
+            [void]$builder.Append((Invoke-LiquidTemplate -Template $template -Context $iterationContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -CurrentFilePath $renderPath -RelativeIncludeRoot $Runtime.RelativeIncludeRoot -IncludeStack ($Runtime.IncludeStack + $renderPath) -Registry $Runtime.Registry -RenderDepth ($Runtime.RenderDepth + 1)))
+        }
+
+        return $builder.ToString()
+    }
+
+    return Invoke-LiquidTemplate -Template $template -Context $baseContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -CurrentFilePath $renderPath -RelativeIncludeRoot $Runtime.RelativeIncludeRoot -IncludeStack ($Runtime.IncludeStack + $renderPath) -Registry $Runtime.Registry -RenderDepth ($Runtime.RenderDepth + 1)
 }
 
 function ConvertTo-LiquidEnumerable {
@@ -2829,6 +3013,9 @@ function ConvertFrom-LiquidNode {
                 $value = Resolve-LiquidExpression -Expression $node.Expression -Runtime $Runtime
                 [void]$builder.Append((ConvertTo-LiquidOutputString -Value $value))
             }
+            'Render' {
+                [void]$builder.Append((Invoke-LiquidRender -Node $node -Runtime $Runtime))
+            }
             'Break' {
                 if ($Runtime.LoopDepth -lt 1) { throw 'Liquid break tag can only be used inside for or tablerow loops.' }
                 $Runtime.ControlFlow = 'Break'
@@ -3009,12 +3196,20 @@ function Invoke-LiquidTemplate {
 
         [string[]]$IncludeStack = @(),
 
-        [hashtable]$Registry = (newLiquidExtensionRegistry)
+        [hashtable]$Registry = (newLiquidExtensionRegistry),
+
+        [int]$RenderDepth = 0
     )
 
     AssertLiquidDialect -Dialect $Dialect
 
     $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -CurrentFilePath $CurrentFilePath -RelativeIncludeRoot $RelativeIncludeRoot -IncludeStack $IncludeStack -Registry $Registry
+    $runtime.RenderDepth = $RenderDepth
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+
+
+
+

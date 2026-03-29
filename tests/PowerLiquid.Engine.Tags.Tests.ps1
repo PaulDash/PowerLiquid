@@ -5,7 +5,7 @@ Describe 'PowerLiquid advanced engine tags' {
         Import-Module $moduleManifestPath -Force
     }
 
-    It 'supports case, cycle, increment, decrement, and echo tags' {
+    It 'supports case, cycle, increment, decrement, echo, and render tags' {
         $template = "{% case page.kind %}{% when 'note', 'post' %}kind{% else %}other{% endcase %}|{% cycle 'odd', 'even' %}|{% cycle 'odd', 'even' %}|{% increment counter %}|{% increment counter %}|{% decrement counter %}|{% echo page.kind | upcase %}"
         $result = Invoke-LiquidTemplate -Template $template -Context @{ page = @{ kind = 'note' } }
         $result | Should -Be 'kind|odd|even|0|1|1|NOTE'
@@ -35,11 +35,27 @@ Describe 'PowerLiquid advanced engine tags' {
         $result | Should -Be '<tr class=""row1""><td class=""col1"">1:1:True:False:0:3</td><td class=""col2"">1:2:False:True:1:2</td></tr><tr class=""row2""><td class=""col1"">2:1:True:True:2:1</td></tr>'
     }
 
+    It 'supports render with isolated scope and for/as bindings' {
+        $templateRoot = Join-Path -Path $TestDrive -ChildPath 'render-isolation'
+        [void](New-Item -Path $templateRoot -ItemType Directory -Force)
+        Set-Content -LiteralPath (Join-Path $templateRoot 'card.liquid') -Encoding UTF8 -Value '{% assign local = "inner" %}{{ item }}-{{ extra }}-{{ forloop.index }}'
+        $template = '{% assign hidden = "secret" %}{% render "card" for items as item, extra: "x" %}|{{ local }}|{{ hidden }}'
+        $result = Invoke-LiquidTemplate -Template $template -Context @{ items = @("a", "b") } -IncludeRoot $templateRoot
+        $result.Replace("`r", "").Replace("`n", "") | Should -Be 'a-x-1b-x-2||secret'
+    }
+
+    It 'rejects include inside a template rendered with render' {
+        $templateRoot = Join-Path -Path $TestDrive -ChildPath 'render-include-ban'
+        [void](New-Item -Path $templateRoot -ItemType Directory -Force)
+        Set-Content -LiteralPath (Join-Path $templateRoot 'outer.liquid') -Encoding UTF8 -Value '{% include part.txt %}'
+        Set-Content -LiteralPath (Join-Path $templateRoot 'part.txt') -Encoding UTF8 -Value 'part'
+        { Invoke-LiquidTemplate -Template '{% render "outer" %}' -Context @{} -Dialect JekyllLiquid -IncludeRoot $templateRoot } | Should -Throw -ExpectedMessage '*include*cannot be used inside a template rendered with ''render''*'
+    }
     It 'rejects break outside loop constructs' {
         { Invoke-LiquidTemplate -Template '{% break %}' -Context @{} } | Should -Throw -ExpectedMessage '*break tag can only be used inside for or tablerow loops*'
     }
 
-    It 'parses AST nodes for case, echo, and loop-control tags' {
+    It 'parses AST nodes for case, echo, render, and loop-control tags' {
         $template = "{% case page.kind %}{% when 'note' %}x{% endcase %}{% echo page.kind | upcase %}{% cycle 'odd', 'even' %}{% increment count %}{% decrement count %}"
         $ast = ConvertTo-LiquidAst -Template $template -Dialect JekyllLiquid
         $ast.Nodes[0].Type | Should -Be 'Case'
@@ -49,4 +65,7 @@ Describe 'PowerLiquid advanced engine tags' {
         $ast.Nodes[4].Type | Should -Be 'Decrement'
     }
 }
+
+
+
 

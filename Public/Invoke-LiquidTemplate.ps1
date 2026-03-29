@@ -63,7 +63,9 @@ function Invoke-LiquidTemplate {
 
         [string[]]$IncludeStack = @(),
 
-        [hashtable]$Registry = (New-LiquidExtensionRegistry)
+        [hashtable]$Registry = (New-LiquidExtensionRegistry),
+
+        [int]$RenderDepth = 0
     )
 
     try {
@@ -74,6 +76,7 @@ function Invoke-LiquidTemplate {
 
         # Build the isolated runtime that carries sanitized context, include settings, and host extensions.
         $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -CurrentFilePath $CurrentFilePath -RelativeIncludeRoot $RelativeIncludeRoot -IncludeStack $IncludeStack -Registry $Registry
+        $runtime.RenderDepth = $RenderDepth
         Write-Verbose "Created runtime with $($Context.Count) context variables"
 
         # Parse the template first so render-time evaluation always works from a consistent AST shape.

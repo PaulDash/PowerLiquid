@@ -1,6 +1,6 @@
-﻿@{
+@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.9.0'
+    ModuleVersion     = '0.9.1'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
@@ -50,7 +50,7 @@
             - explicit dialect support
             - host-controlled extensibility
 
-            # 0.9.0
+            # 0.9.1
             Features:
             - complete built-in filter surface for the current Liquid implementation, including collection, date, URL, string, and numeric filters
             - consistent top-level error handling across the exported commands
@@ -59,3 +59,4 @@
         }
     }
 }
+

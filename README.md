@@ -18,6 +18,14 @@ PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rende
 - AST generation through `ConvertTo-LiquidAst` with token and node diagnostics
 - consistent top-level error handling across the exported commands
 
+Almost everything (object types, tags, filters) of what is documented at [this Liquid page](https://shopify.github.io/liquid/) is working as of PowerLiquid version 1.0.0. The only missing features are:
+
+- Whitespace control
+- "liquid" tag (from Liquid version 5.0.0)
+- inline comments inside tags (from Liquid version 5.4.0)
+
+For what can be fixed, see the [Future Improvements](#future-improvements) section and consider contributing!
+
 ### Available commands
 
 - `ConvertTo-LiquidAst`
@@ -48,7 +56,7 @@ The base `Liquid` dialect stays focused on core Liquid syntax.
 The `JekyllLiquid` dialect layers Jekyll-specific behavior such as:
 
 - Jekyll filters
-- Jekyll-style {% include %}`r
+- Jekyll-style {% include %}
 - Jekyll-style {% include_relative %} when the host supplies the current file path and an allowed relative root
 
 ## Host Extension Model
@@ -177,6 +185,26 @@ We welcome contributions! Please follow these guidelines:
 - Use GitHub issues for bugs and feature requests.
 - Include template examples, expected vs. actual output, and PowerShell version.
 
+## Future improvements {#future-improvements}
 
+### Host Integration
 
+- support host-provided error policies such as strict variables, strict filters, or warnings-only
+- provide explicit callback hooks for file resolution instead of only built-in include-root handling
+- make dialect definitions data-driven so hosts can define custom dialects (like for [ShopifyThemes](https://shopify.dev/docs/api/liquid))
 
+### Parser and AST
+
+- expose a parse-only API in addition to render
+- expose an AST / token tree for tooling use
+
+### Tooling
+
+- add parse diagnostics with structured error records
+- add formatter / linter support
+
+### Performance
+
+- add template caching
+- add precompiled template support
+- reduce repeated regex/tokenization work during nested renders

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.0] - 2026-03-29
+## [0.9.1] - 2026-03-29
 
 ### Added
 
@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added command-level error wrapping across the exported functions so parse, render, and registry failures surface with clearer entry-point context
 - Added inline section comments across the module loader, public command wrappers, and major engine sections
 - Added built-in support for the Liquid `echo` tag
-- Added an internal `EmptyDrop` object so the `empty` literal and empty-object comparisons follow Liquid semantics
+- Added an internal EmptyDrop object so the mpty literal and empty-object comparisons follow Liquid semantics
+- Added built-in support for the Liquid ender tag, including parameter passing and isolated render scope
 
 ### Changed
 
@@ -85,3 +86,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Various parsing and rendering improvements
+
+
