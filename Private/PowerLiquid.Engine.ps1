@@ -1654,7 +1654,6 @@ function Invoke-LiquidFilter {
         [hashtable]$Runtime
     )
 
-    # Start with a small filter surface that is useful in layouts and easy to extend later.
     $dialect = if ($null -ne $Runtime -and $Runtime.ContainsKey('Dialect')) { $Runtime.Dialect } else { 'Liquid' }
     $customFilter = if ($null -ne $Runtime) { Get-LiquidCustomFilter -Name $Name -Runtime $Runtime } else { $null }
     if ($null -ne $customFilter) {
@@ -1666,67 +1665,27 @@ function Invoke-LiquidFilter {
     }
 
     switch ($Name.ToLowerInvariant()) {
-        'append' { return (ConvertTo-LiquidOutputString -Value $InputObject) + (ConvertTo-LiquidOutputString -Value $Arguments[0]) }
-        'prepend' { return (ConvertTo-LiquidOutputString -Value $Arguments[0]) + (ConvertTo-LiquidOutputString -Value $InputObject) }
-        'upcase' { return (ConvertTo-LiquidOutputString -Value $InputObject).ToUpperInvariant() }
-        'downcase' { return (ConvertTo-LiquidOutputString -Value $InputObject).ToLowerInvariant() }
-        'strip' { return (ConvertTo-LiquidOutputString -Value $InputObject).Trim() }
-        'lstrip' { return (ConvertTo-LiquidOutputString -Value $InputObject).TrimStart() }
-        'rstrip' { return (ConvertTo-LiquidOutputString -Value $InputObject).TrimEnd() }
-        'default' {
-            if (-not (Test-LiquidTruthy -Value $InputObject) -or [string]::IsNullOrEmpty((ConvertTo-LiquidOutputString -Value $InputObject))) {
-                return $Arguments[0]
-            }
 
-            return $InputObject
-        }
-        'escape' { return [System.Net.WebUtility]::HtmlEncode((ConvertTo-LiquidOutputString -Value $InputObject)) }
-        'escape_once' { return [System.Net.WebUtility]::HtmlEncode([System.Net.WebUtility]::HtmlDecode((ConvertTo-LiquidOutputString -Value $InputObject))) }
-        'size' {
-            if ($InputObject -is [string]) { return $InputObject.Length }
-            if ($InputObject -is [System.Collections.ICollection]) { return $InputObject.Count }
-            if ($InputObject -is [System.Collections.IDictionary]) { return $InputObject.Count }
-            return (ConvertTo-LiquidOutputString -Value $InputObject).Length
-        }
-        'plus' {
-            $left = ConvertTo-LiquidNumericValue -Value $InputObject
-            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
-            return $left + $right
-        }
-        'minus' {
-            $left = ConvertTo-LiquidNumericValue -Value $InputObject
-            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
-            return $left - $right
-        }
-        'times' {
-            $left = ConvertTo-LiquidNumericValue -Value $InputObject
-            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
-            return $left * $right
-        }
-        'divided_by' {
-            $left = ConvertTo-LiquidNumericValue -Value $InputObject
-            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
-            if ($right -eq 0) { throw 'Liquid divided_by by zero is not allowed.' }
-            return $left / $right
-        }
-        'modulo' {
-            $left = ConvertTo-LiquidNumericValue -Value $InputObject
-            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
-            if ($right -eq 0) { throw 'Liquid modulo by zero is not allowed.' }
-            return $left % $right
-        }
         'abs' {
             $value = ConvertTo-LiquidNumericValue -Value $InputObject
             return [math]::Abs($value)
         }
-        'at_least' {
-            $value = ConvertTo-LiquidNumericValue -Value $InputObject
-            $min = ConvertTo-LiquidNumericValue -Value $Arguments[0]
-            if ($value -lt $min) {
-                return $min
+        'absolute_url' {
+            if ($dialect -ne 'JekyllLiquid') {
+                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
             }
-            return $value
+
+            $site = Resolve-LiquidVariable -Runtime $Runtime -Path 'site'
+            $siteUrl = if ($site) { Get-LiquidRuntimeValue -Value $site -MemberName 'url' } else { $null }
+            $relativePath = Invoke-LiquidFilter -Name 'relative_url' -InputObject $InputObject -Arguments @() -Runtime $Runtime
+
+            if ([string]::IsNullOrWhiteSpace($siteUrl)) {
+                return $relativePath
+            }
+
+            return ($siteUrl.TrimEnd('/') + '/' + ([string]$relativePath).TrimStart('/'))
         }
+        'append' { return (ConvertTo-LiquidOutputString -Value $InputObject) + (ConvertTo-LiquidOutputString -Value $Arguments[0]) }
         'at_most' {
             $value = ConvertTo-LiquidNumericValue -Value $InputObject
             $max = ConvertTo-LiquidNumericValue -Value $Arguments[0]
@@ -1735,17 +1694,13 @@ function Invoke-LiquidFilter {
             }
             return $value
         }
-        'floor' {
+        'at_least' {
             $value = ConvertTo-LiquidNumericValue -Value $InputObject
-            return [math]::Floor($value)
-        }
-        'round' {
-            $value = ConvertTo-LiquidNumericValue -Value $InputObject
-            $precision = 0
-            if ($Arguments.Count -gt 0) {
-                $precision = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            $min = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            if ($value -lt $min) {
+                return $min
             }
-            return [math]::Round($value, $precision, [System.MidpointRounding]::AwayFromZero)
+            return $value
         }
         'capitalize' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
@@ -1766,9 +1721,128 @@ function Invoke-LiquidFilter {
             [void]$result.AddRange(@($Arguments[0]))
             return ,@($result.ToArray())
         }
+        'date' {
+            $dateValue = $null
+            $inputString = ConvertTo-LiquidOutputString -Value $InputObject
+            if ($inputString -ieq 'now' -or $inputString -ieq 'today') {
+                $dateValue = [datetime]::Now
+            } else {
+                $dateValue = [datetime]$InputObject
+            }
+            $formatString = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            return $dateValue.ToString($formatString)
+        }
+        'date_to_rfc822' {
+            if ($dialect -ne 'JekyllLiquid') {
+                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
+            }
+
+            $dateValue = if ($InputObject -is [datetime]) { $InputObject } else { [datetime]$InputObject }
+            return $dateValue.ToString('ddd, dd MMM yyyy HH:mm:ss K', [System.Globalization.CultureInfo]::InvariantCulture)
+        }
+        'date_to_xmlschema' {
+            if ($dialect -ne 'JekyllLiquid') {
+                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
+            }
+
+            $dateValue = if ($InputObject -is [datetime]) { $InputObject } else { [datetime]$InputObject }
+            return $dateValue.ToString('yyyy-MM-ddTHH:mm:ssK')
+        }
+        'default' {
+            if (-not (Test-LiquidTruthy -Value $InputObject) -or [string]::IsNullOrEmpty((ConvertTo-LiquidOutputString -Value $InputObject))) {
+                return $Arguments[0]
+            }
+
+            return $InputObject
+        }
+        'divided_by' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            if ($right -eq 0) { throw 'Liquid divided_by by zero is not allowed.' }
+            return $left / $right
+        }
+        'downcase' { return (ConvertTo-LiquidOutputString -Value $InputObject).ToLowerInvariant() }
+        'escape' { return [System.Net.WebUtility]::HtmlEncode((ConvertTo-LiquidOutputString -Value $InputObject)) }
+        'escape_once' { return [System.Net.WebUtility]::HtmlEncode([System.Net.WebUtility]::HtmlDecode((ConvertTo-LiquidOutputString -Value $InputObject))) }
+        'first' {
+            if ($InputObject -is [System.Collections.IList]) { return if ($InputObject.Count -gt 0) { $InputObject[0] } else { $null } }
+            return $null
+        }
+        'floor' {
+            $value = ConvertTo-LiquidNumericValue -Value $InputObject
+            return [math]::Floor($value)
+        }
+        'join' {
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                return (($InputObject | ForEach-Object { ConvertTo-LiquidOutputString -Value $_ }) -join [string]$Arguments[0])
+            }
+
+            return ConvertTo-LiquidOutputString -Value $InputObject
+        }
+        'jsonify' {
+            if ($dialect -ne 'JekyllLiquid') {
+                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
+            }
+
+            return (ConvertTo-Json -InputObject $InputObject -Depth 20 -Compress)
+        }
+        'last' {
+            if ($InputObject -is [System.Collections.IList]) { return if ($InputObject.Count -gt 0) { $InputObject[$InputObject.Count - 1] } else { $null } }
+            return $null
+        }
+        'lstrip' { return (ConvertTo-LiquidOutputString -Value $InputObject).TrimStart() }
+        'map' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            if ($Arguments.Count -lt 1) {
+                throw "The 'map' filter requires 1 argument: property name"
+            }
+
+            $propertyName = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $mappedItems = New-Object System.Collections.ArrayList
+            foreach ($item in @($InputObject)) {
+                [void]$mappedItems.Add((Resolve-LiquidSortValue -Value $item -PropertyName $propertyName))
+            }
+
+            return ,@($mappedItems.ToArray())
+        }
+        'minus' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            return $left - $right
+        }
+        'modulo' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            if ($right -eq 0) { throw 'Liquid modulo by zero is not allowed.' }
+            return $left % $right
+        }
         'newline_to_br' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
             return $text.Replace('\n', '<br>').Replace('\r', '<br>')
+        }
+        'plus' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            return $left + $right
+        }
+        'prepend' { return (ConvertTo-LiquidOutputString -Value $Arguments[0]) + (ConvertTo-LiquidOutputString -Value $InputObject) }
+        'relative_url' {
+            if ($dialect -ne 'JekyllLiquid') {
+                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
+            }
+
+            $site = Resolve-LiquidVariable -Runtime $Runtime -Path 'site'
+            $baseUrl = if ($site) { Get-LiquidRuntimeValue -Value $site -MemberName 'baseurl' } else { $null }
+            $path = ConvertTo-LiquidOutputString -Value $InputObject
+
+            if ([string]::IsNullOrWhiteSpace($baseUrl)) {
+                return $path
+            }
+
+            return ($baseUrl.TrimEnd('/') + '/' + $path.TrimStart('/'))
         }
         'remove' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
@@ -1835,6 +1909,21 @@ function Invoke-LiquidFilter {
             }
             return $InputObject
         }
+        'round' {
+            $value = ConvertTo-LiquidNumericValue -Value $InputObject
+            $precision = 0
+            if ($Arguments.Count -gt 0) {
+                $precision = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            }
+            return [math]::Round($value, $precision, [System.MidpointRounding]::AwayFromZero)
+        }
+        'rstrip' { return (ConvertTo-LiquidOutputString -Value $InputObject).TrimEnd() }
+        'size' {
+            if ($InputObject -is [string]) { return $InputObject.Length }
+            if ($InputObject -is [System.Collections.ICollection]) { return $InputObject.Count }
+            if ($InputObject -is [System.Collections.IDictionary]) { return $InputObject.Count }
+            return (ConvertTo-LiquidOutputString -Value $InputObject).Length
+        }
         'slice' {
             if ($Arguments.Count -lt 1) { throw "The 'slice' filter requires at least 1 argument: start index" }
 
@@ -1868,6 +1957,36 @@ function Invoke-LiquidFilter {
 
             return $InputObject
         }
+        'sort' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            $propertyName = if ($Arguments.Count -gt 0) { ConvertTo-LiquidOutputString -Value $Arguments[0] } else { $null }
+            $sortedItems = @(
+                @($InputObject) |
+                    Sort-Object -Stable -Property @{
+                        Expression = { Resolve-LiquidSortValue -Value $_ -PropertyName $propertyName }
+                    }
+            )
+            return ,$sortedItems
+        }
+        'sort_natural' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            $propertyName = if ($Arguments.Count -gt 0) { ConvertTo-LiquidOutputString -Value $Arguments[0] } else { $null }
+            $sortedItems = @(
+                @($InputObject) |
+                    Sort-Object -Stable -Property @{
+                        Expression = { ConvertTo-LiquidNaturalSortKey -Value (Resolve-LiquidSortValue -Value $_ -PropertyName $propertyName) }
+                    }
+            )
+            return ,$sortedItems
+        }
+        'split' { return (ConvertTo-LiquidOutputString -Value $InputObject).Split([string]$Arguments[0], [System.StringSplitOptions]::None) }
+        'strip' { return (ConvertTo-LiquidOutputString -Value $InputObject).Trim() }
         'strip_newlines' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
             return $text.Replace('\n', '').Replace('\r', '')
@@ -1876,13 +1995,23 @@ function Invoke-LiquidFilter {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
             return ([System.Text.RegularExpressions.Regex]::Replace($text, '<[^>]+>', '')).Trim()
         }
-        'url_encode' {
-            $text = ConvertTo-LiquidOutputString -Value $InputObject
-            return [System.Uri]::EscapeDataString($text)
+        'sum' {
+            $total = 0
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                foreach ($item in $InputObject) {
+                    try {
+                        $total += ConvertTo-LiquidNumericValue -Value $item
+                    } catch {
+                        # Skip non-numeric items
+                    }
+                }
+            }
+            return $total
         }
-        'url_decode' {
-            $text = ConvertTo-LiquidOutputString -Value $InputObject
-            return [System.Uri]::UnescapeDataString($text.Replace('+', '%20'))
+        'times' {
+            $left = ConvertTo-LiquidNumericValue -Value $InputObject
+            $right = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            return $left * $right
         }
         'truncate' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
@@ -1929,136 +2058,6 @@ function Invoke-LiquidFilter {
             $truncatedWords = $words[0..($wordCount - 1)]
             return ($truncatedWords -join ' ') + $suffix
         }
-        'sum' {
-            $total = 0
-            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
-                foreach ($item in $InputObject) {
-                    try {
-                        $total += ConvertTo-LiquidNumericValue -Value $item
-                    } catch {
-                        # Skip non-numeric items
-                    }
-                }
-            }
-            return $total
-        }
-        'date' {
-            $dateValue = $null
-            $inputString = ConvertTo-LiquidOutputString -Value $InputObject
-            if ($inputString -ieq 'now' -or $inputString -ieq 'today') {
-                $dateValue = [datetime]::Now
-            } else {
-                $dateValue = [datetime]$InputObject
-            }
-            $formatString = ConvertTo-LiquidOutputString -Value $Arguments[0]
-            return $dateValue.ToString($formatString)
-        }
-        'split' { return (ConvertTo-LiquidOutputString -Value $InputObject).Split([string]$Arguments[0], [System.StringSplitOptions]::None) }
-        'join' {
-            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
-                return (($InputObject | ForEach-Object { ConvertTo-LiquidOutputString -Value $_ }) -join [string]$Arguments[0])
-            }
-
-            return ConvertTo-LiquidOutputString -Value $InputObject
-        }
-        'first' {
-            if ($InputObject -is [System.Collections.IList]) { return if ($InputObject.Count -gt 0) { $InputObject[0] } else { $null } }
-            return $null
-        }
-        'last' {
-            if ($InputObject -is [System.Collections.IList]) { return if ($InputObject.Count -gt 0) { $InputObject[$InputObject.Count - 1] } else { $null } }
-            return $null
-        }
-        'relative_url' {
-            if ($dialect -ne 'JekyllLiquid') {
-                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
-            }
-
-            $site = Resolve-LiquidVariable -Runtime $Runtime -Path 'site'
-            $baseUrl = if ($site) { Get-LiquidRuntimeValue -Value $site -MemberName 'baseurl' } else { $null }
-            $path = ConvertTo-LiquidOutputString -Value $InputObject
-
-            if ([string]::IsNullOrWhiteSpace($baseUrl)) {
-                return $path
-            }
-
-            return ($baseUrl.TrimEnd('/') + '/' + $path.TrimStart('/'))
-        }
-        'absolute_url' {
-            if ($dialect -ne 'JekyllLiquid') {
-                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
-            }
-
-            $site = Resolve-LiquidVariable -Runtime $Runtime -Path 'site'
-            $siteUrl = if ($site) { Get-LiquidRuntimeValue -Value $site -MemberName 'url' } else { $null }
-            $relativePath = Invoke-LiquidFilter -Name 'relative_url' -InputObject $InputObject -Arguments @() -Runtime $Runtime
-
-            if ([string]::IsNullOrWhiteSpace($siteUrl)) {
-                return $relativePath
-            }
-
-            return ($siteUrl.TrimEnd('/') + '/' + ([string]$relativePath).TrimStart('/'))
-        }
-        'xml_escape' {
-            if ($dialect -ne 'JekyllLiquid') {
-                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
-            }
-
-            $value = ConvertTo-LiquidOutputString -Value $InputObject
-            $escaped = [System.Security.SecurityElement]::Escape($value)
-            return $escaped.Replace("'", '&apos;')
-        }
-        'date_to_xmlschema' {
-            if ($dialect -ne 'JekyllLiquid') {
-                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
-            }
-
-            $dateValue = if ($InputObject -is [datetime]) { $InputObject } else { [datetime]$InputObject }
-            return $dateValue.ToString('yyyy-MM-ddTHH:mm:ssK')
-        }
-        'date_to_rfc822' {
-            if ($dialect -ne 'JekyllLiquid') {
-                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
-            }
-
-            $dateValue = if ($InputObject -is [datetime]) { $InputObject } else { [datetime]$InputObject }
-            return $dateValue.ToString('ddd, dd MMM yyyy HH:mm:ss K', [System.Globalization.CultureInfo]::InvariantCulture)
-        }
-        'jsonify' {
-            if ($dialect -ne 'JekyllLiquid') {
-                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
-            }
-
-            return (ConvertTo-Json -InputObject $InputObject -Depth 20 -Compress)
-        }
-        'sort' {
-            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
-                return $InputObject
-            }
-
-            $propertyName = if ($Arguments.Count -gt 0) { ConvertTo-LiquidOutputString -Value $Arguments[0] } else { $null }
-            $sortedItems = @(
-                @($InputObject) |
-                    Sort-Object -Stable -Property @{
-                        Expression = { Resolve-LiquidSortValue -Value $_ -PropertyName $propertyName }
-                    }
-            )
-            return ,$sortedItems
-        }
-        'sort_natural' {
-            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
-                return $InputObject
-            }
-
-            $propertyName = if ($Arguments.Count -gt 0) { ConvertTo-LiquidOutputString -Value $Arguments[0] } else { $null }
-            $sortedItems = @(
-                @($InputObject) |
-                    Sort-Object -Stable -Property @{
-                        Expression = { ConvertTo-LiquidNaturalSortKey -Value (Resolve-LiquidSortValue -Value $_ -PropertyName $propertyName) }
-                    }
-            )
-            return ,$sortedItems
-        }
         'uniq' {
             if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
                 return $InputObject
@@ -2075,22 +2074,14 @@ function Invoke-LiquidFilter {
 
             return ,@($uniqueItems.ToArray())
         }
-        'map' {
-            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
-                return $InputObject
-            }
-
-            if ($Arguments.Count -lt 1) {
-                throw "The 'map' filter requires 1 argument: property name"
-            }
-
-            $propertyName = ConvertTo-LiquidOutputString -Value $Arguments[0]
-            $mappedItems = New-Object System.Collections.ArrayList
-            foreach ($item in @($InputObject)) {
-                [void]$mappedItems.Add((Resolve-LiquidSortValue -Value $item -PropertyName $propertyName))
-            }
-
-            return ,@($mappedItems.ToArray())
+        'upcase' { return (ConvertTo-LiquidOutputString -Value $InputObject).ToUpperInvariant() }
+        'url_decode' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return [System.Uri]::UnescapeDataString($text.Replace('+', '%20'))
+        }
+        'url_encode' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return [System.Uri]::EscapeDataString($text)
         }
         'where' {
             if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
@@ -2119,6 +2110,15 @@ function Invoke-LiquidFilter {
             }
 
             return ,@($matches.ToArray())
+        }
+        'xml_escape' {
+            if ($dialect -ne 'JekyllLiquid') {
+                throw "Liquid filter '$Name' is not supported in the '$dialect' dialect."
+            }
+
+            $value = ConvertTo-LiquidOutputString -Value $InputObject
+            $escaped = [System.Security.SecurityElement]::Escape($value)
+            return $escaped.Replace("'", '&apos;')
         }
         default { throw "Liquid filter '$Name' is not supported." }
     }
@@ -2867,10 +2867,3 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
-
-
-
-
-
-
-
