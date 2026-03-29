@@ -2075,7 +2075,23 @@ function Invoke-LiquidFilter {
 
             return ,@($uniqueItems.ToArray())
         }
-        # TODO: Add Liquid filter support for map.
+        'map' {
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                return $InputObject
+            }
+
+            if ($Arguments.Count -lt 1) {
+                throw "The 'map' filter requires 1 argument: property name"
+            }
+
+            $propertyName = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $mappedItems = New-Object System.Collections.ArrayList
+            foreach ($item in @($InputObject)) {
+                [void]$mappedItems.Add((Resolve-LiquidSortValue -Value $item -PropertyName $propertyName))
+            }
+
+            return ,@($mappedItems.ToArray())
+        }
         # TODO: Add Liquid filter support for where.
         default { throw "Liquid filter '$Name' is not supported." }
     }
@@ -2824,6 +2840,7 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
 
 
 

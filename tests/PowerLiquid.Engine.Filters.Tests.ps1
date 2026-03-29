@@ -189,6 +189,28 @@ Describe 'PowerLiquid filter behavior' {
 
         (Invoke-LiquidTemplate -Template '{% assign unique = items | sort: "name" | uniq %}{% for item in unique %}{{ item.name }}{% unless forloop.last %},{% endunless %}{% endfor %}' -Context $context).Trim() | Should -Be 'alpha,bravo,charlie'
     }
+    It 'supports map by property name' {
+        $context = @{
+            items = @(
+                @{ name = 'alpha' }
+                @{ name = 'bravo' }
+                @{ name = 'charlie' }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{{ items | map: "name" | join: "," }}' -Context $context).Trim() | Should -Be 'alpha,bravo,charlie'
+    }
+
+    It 'supports map by nested property name' {
+        $context = @{
+            items = @(
+                @{ author = @{ name = 'Ada' } }
+                @{ author = @{ name = 'Grace' } }
+            )
+        }
+
+        (Invoke-LiquidTemplate -Template '{{ items | map: "author.name" | join: "," }}' -Context $context).Trim() | Should -Be 'Ada,Grace'
+    }
     It 'supports strip_newlines' {
         (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | strip_newlines }}' -Context @{}).Trim() | Should -Be 'line1line2'
     }
@@ -246,6 +268,7 @@ Describe 'PowerLiquid filter behavior' {
     }
 
 }
+
 
 
 
