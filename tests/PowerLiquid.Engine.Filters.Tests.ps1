@@ -110,14 +110,39 @@ Describe 'PowerLiquid numeric filter behavior' {
     }
 
     It 'supports truncate' {
-        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 5 }}' -Context @{}).Trim() | Should -Be 'hello...'
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 5 }}' -Context @{}).Trim() | Should -Be 'he...'
     }
 
     It 'supports truncate with custom suffix' {
-        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 5, "!!!" }}' -Context @{}).Trim() | Should -Be 'hello!!!'
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 3, "!" }}' -Context @{}).Trim() | Should -Be 'he!'
+    }
+
+    It 'supports truncate with length longer than string' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 20 }}' -Context @{}).Trim() | Should -Be 'hello world'
     }
 
     It 'supports truncatewords' {
         (Invoke-LiquidTemplate -Template '{{ "hello world from liquid" | truncatewords: 2 }}' -Context @{}).Trim() | Should -Be 'hello world...'
+    }
+
+    It 'supports sum for numeric arrays' {
+        (Invoke-LiquidTemplate -Template '{{ "1,2,3,4,5" | split: "," | sum }}' -Context @{}).Trim() | Should -Be '15'
+    }
+
+    It 'supports date with format string' {
+        $context = @{ createdDate = [datetime]'2026-03-29T14:30:00' }
+        (Invoke-LiquidTemplate -Template '{{ createdDate | date: "yyyy-MM-dd" }}' -Context $context).Trim() | Should -Be '2026-03-29'
+    }
+
+    It 'supports date with now keyword' {
+        $result = Invoke-LiquidTemplate -Template '{{ "now" | date: "yyyy" }}' -Context @{}
+        $year = [datetime]::Now.Year.ToString()
+        $result.Trim() | Should -Be $year
+    }
+
+    It 'supports date with today keyword' {
+        $result = Invoke-LiquidTemplate -Template '{{ "today" | date: "yyyy-MM-dd" }}' -Context @{}
+        $date = [datetime]::Now.ToString('yyyy-MM-dd')
+        $result.Trim() | Should -Be $date
     }
 }

@@ -1693,11 +1693,14 @@ function Invoke-LiquidFilter {
             return [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ToTitleCase($text.ToLowerInvariant())
         }
         'concat' {
+            if ($Arguments.Count -lt 1) { throw "The 'concat' filter requires at least 1 argument: array to concatenate" }
             if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
                 $result = New-Object System.Collections.ArrayList
-                [void]$result.AddRange($InputObject)
-                if ($Arguments.Count -gt 0 -and $Arguments[0] -is [System.Collections.IEnumerable] -and $Arguments[0] -isnot [string]) {
-                    [void]$result.AddRange($Arguments[0])
+                [void]$result.AddRange(@($InputObject))
+                for ($i = 0; $i -lt $Arguments.Count; $i++) {
+                    if ($Arguments[$i] -is [System.Collections.IEnumerable] -and $Arguments[$i] -isnot [string]) {
+                        [void]$result.AddRange(@($Arguments[$i]))
+                    }
                 }
                 return ,@($result.ToArray())
             }
@@ -1731,12 +1734,14 @@ function Invoke-LiquidFilter {
             return $text
         }
         'replace' {
+            if ($Arguments.Count -lt 2) { throw "The 'replace' filter requires 2 arguments: old value and new value" }
             $text = ConvertTo-LiquidOutputString -Value $InputObject
             $oldValue = ConvertTo-LiquidOutputString -Value $Arguments[0]
             $newValue = ConvertTo-LiquidOutputString -Value $Arguments[1]
             return $text.Replace($oldValue, $newValue)
         }
         'replace_first' {
+            if ($Arguments.Count -lt 2) { throw "The 'replace_first' filter requires 2 arguments: old value and new value" }
             $text = ConvertTo-LiquidOutputString -Value $InputObject
             $oldValue = ConvertTo-LiquidOutputString -Value $Arguments[0]
             $newValue = ConvertTo-LiquidOutputString -Value $Arguments[1]
@@ -1747,6 +1752,7 @@ function Invoke-LiquidFilter {
             return $text
         }
         'replace_last' {
+            if ($Arguments.Count -lt 2) { throw "The 'replace_last' filter requires 2 arguments: old value and new value" }
             $text = ConvertTo-LiquidOutputString -Value $InputObject
             $oldValue = ConvertTo-LiquidOutputString -Value $Arguments[0]
             $newValue = ConvertTo-LiquidOutputString -Value $Arguments[1]
@@ -1775,15 +1781,38 @@ function Invoke-LiquidFilter {
         }
         'truncate' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
-            $length = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            $length = 50
+            if ($Arguments.Count -gt 0) {
+                $length = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            }
+
             $suffix = '...'
             if ($Arguments.Count -gt 1) {
                 $suffix = ConvertTo-LiquidOutputString -Value $Arguments[1]
             }
-            if ($text.Length <= $length) {
+
+            Write-Host "DEBUG truncate: text=[$text], length=$length, suffix=[$suffix], text.Length=$($text.Length)"
+
+            if ($length -le 0) {
+                return ''
+            }
+
+            if ($text.Length -le $length) {
                 return $text
             }
-            return $text.Substring(0, $length) + $suffix
+
+            if ($suffix.Length -ge $length) {
+                return $suffix.Substring(0, $length)
+            }
+
+            $truncatedLength = $length - $suffix.Length
+            if ($truncatedLength -lt 0) {
+                $truncatedLength = 0
+            }
+
+            Write-Host "DEBUG truncate: truncatedLength=$truncatedLength"
+
+            return $text.Substring(0, $truncatedLength) + $suffix
         }
         'truncatewords' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
@@ -1798,6 +1827,30 @@ function Invoke-LiquidFilter {
             }
             $truncatedWords = $words[0..($wordCount - 1)]
             return ($truncatedWords -join ' ') + $suffix
+        }
+        'sum' {
+            $total = 0
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                foreach ($item in $InputObject) {
+                    try {
+                        $total += ConvertTo-LiquidNumericValue -Value $item
+                    } catch {
+                        # Skip non-numeric items
+                    }
+                }
+            }
+            return $total
+        }
+        'date' {
+            $dateValue = $null
+            $inputString = ConvertTo-LiquidOutputString -Value $InputObject
+            if ($inputString -ieq 'now' -or $inputString -ieq 'today') {
+                $dateValue = [datetime]::Now
+            } else {
+                $dateValue = [datetime]$InputObject
+            }
+            $formatString = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            return $dateValue.ToString($formatString)
         }
         'split' { return (ConvertTo-LiquidOutputString -Value $InputObject).Split([string]$Arguments[0], [System.StringSplitOptions]::None) }
         'join' {
@@ -1877,13 +1930,11 @@ function Invoke-LiquidFilter {
 
             return (ConvertTo-Json -InputObject $InputObject -Depth 20 -Compress)
         }
-        # TODO: Add Liquid filter support for date.
         # TODO: Add Liquid filter support for map.
         # TODO: Add Liquid filter support for slice.
         # TODO: Add Liquid filter support for sort.
         # TODO: Add Liquid filter support for sort_natural.
         # TODO: Add Liquid filter support for strip_html.
-        # TODO: Add Liquid filter support for sum.
         # TODO: Add Liquid filter support for uniq.
         # TODO: Add Liquid filter support for url_decode.
         # TODO: Add Liquid filter support for url_encode.
@@ -1922,10 +1973,12 @@ function Resolve-LiquidExpression {
                 Split-LiquidDelimitedString -InputText ([string]$filterParts[1]) -Delimiter ',' |
                     ForEach-Object { [string]$_ }
             )
+            Write-Host "DEBUG Resolve-LiquidExpression filterName=$filterName argumentExpressions=[$(($argumentExpressions -join '|'))]"
             $arguments = @(
                 $argumentExpressions |
                     ForEach-Object { Resolve-LiquidExpression -Expression $_ -Runtime $Runtime }
             )
+            Write-Host "DEBUG Resolve-LiquidExpression resolvedArguments=[$(($arguments -join '|'))]"
         }
 
         $value = Invoke-LiquidFilter -Name $filterName -InputObject $value -Arguments $arguments -Runtime $Runtime

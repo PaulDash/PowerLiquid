@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Numeric filter support: plus, minus, times, divided_by, modulo
 - Arithmetic filter support: abs, at_least, at_most, floor, round
 - String filter support: capitalize, concat, newline_to_br, remove, remove_first, remove_last, replace, replace_first, replace_last, reverse, strip_newlines, truncate, truncatewords
+- Date and collection filter support: date (with "now"/"today" keywords), sum
 
 ## [0.8.14] - 2026-03-29
 
