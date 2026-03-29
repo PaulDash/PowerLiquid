@@ -62,6 +62,18 @@ Describe 'PowerLiquid advanced engine tags' {
         $result | Should -Be 'NOTE'
     }
 
+
+    It 'supports standalone multi-line inline comments' {
+        $template = "Before{%`n  # first line`n  # second line`n%}After"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{}
+        $result | Should -Be 'BeforeAfter'
+    }
+
+    It 'supports standalone multi-line inline comments with whitespace control' {
+        $template = "A`n{%-`n  # hidden line one`n  # hidden line two`n-%}`nB"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{}
+        $result | Should -Be 'AB'
+    }
     It 'supports inline comments inside liquid tags' {
         $template = "{% liquid`n# this line is ignored`nassign topic = 'Learning about comments!'`necho topic`n%}"
         $result = Invoke-LiquidTemplate -Template $template -Context @{}
@@ -88,6 +100,7 @@ Describe 'PowerLiquid advanced engine tags' {
         $ast.Nodes[4].Type | Should -Be 'Decrement'
     }
 }
+
 
 
 
