@@ -1991,10 +1991,7 @@ function Invoke-LiquidFilter {
         # TODO: Add Liquid filter support for slice.
         # TODO: Add Liquid filter support for sort.
         # TODO: Add Liquid filter support for sort_natural.
-        # TODO: Add Liquid filter support for strip_html.
         # TODO: Add Liquid filter support for uniq.
-        # TODO: Add Liquid filter support for url_decode.
-        # TODO: Add Liquid filter support for url_encode.
         # TODO: Add Liquid filter support for where.
         default { throw "Liquid filter '$Name' is not supported." }
     }
@@ -2743,5 +2740,3 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
-
-
