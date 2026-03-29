@@ -10,7 +10,7 @@
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Tokenizes and parses a Liquid template into a structured AST object for analysis or tooling. Supports multiple dialects and extension registries.</maml:para>
+      <maml:para>Tokenizes and parses a Liquid template into a structured AST object for analysis or tooling. This is the primary PowerLiquid entry point for parse-only inspection of Liquid syntax. Tokens and AST nodes preserve line, column, and character-index ranges for diagnostics. Supports multiple dialects and extension registries.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>
@@ -54,13 +54,25 @@
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
           <maml:name>IncludeTokens</maml:name>
           <maml:description>
-            <maml:para>Include the raw token stream in the AST output.</maml:para>
+            <maml:para>Include the raw token stream in the AST output. Tokens also include source locations for diagnostics.</maml:para>
           </maml:description>
           <dev:type>
             <maml:name>SwitchParameter</maml:name>
             <maml:uri />
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+          <maml:name>ProgressAction</maml:name>
+          <maml:description>
+            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <dev:type>
+            <maml:name>ActionPreference</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
       </command:syntaxItem>
     </command:syntax>
@@ -104,7 +116,7 @@
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
         <maml:name>IncludeTokens</maml:name>
         <maml:description>
-          <maml:para>Include the raw token stream in the AST output.</maml:para>
+          <maml:para>Include the raw token stream in the AST output. Tokens also include source locations for diagnostics.</maml:para>
         </maml:description>
         <command:parameterValue required="false" variableLength="false">SwitchParameter</command:parameterValue>
         <dev:type>
@@ -112,6 +124,18 @@
           <maml:uri />
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+        <maml:name>ProgressAction</maml:name>
+        <maml:description>
+          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <dev:type>
+          <maml:name>ActionPreference</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
     </command:parameters>
     <command:inputTypes />
@@ -126,7 +150,33 @@
       </command:returnValue>
     </command:returnValues>
     <maml:alertSet>
-      <maml:alert />
+      <maml:alert>
+        <maml:para>AST root: - Dialect</maml:para>
+        <maml:para>- Nodes</maml:para>
+        <maml:para>- Tokens when -IncludeTokens is specified</maml:para>
+        <maml:para></maml:para>
+        <maml:para>Location object: - StartLine</maml:para>
+        <maml:para>- StartColumn</maml:para>
+        <maml:para>- EndLine</maml:para>
+        <maml:para>- EndColumn</maml:para>
+        <maml:para>- StartIndex</maml:para>
+        <maml:para>- EndIndex</maml:para>
+        <maml:para></maml:para>
+        <maml:para>Common node shapes: - Text: Type, Value, Location</maml:para>
+        <maml:para>- Output: Type, Expression, Location</maml:para>
+        <maml:para>- Assign: Type, Name, Expression, Location</maml:para>
+        <maml:para>- Capture: Type, Name, Nodes, Location</maml:para>
+        <maml:para>- If: Type, Branches, Else, Location</maml:para>
+        <maml:para>- Unless: Type, Condition, Nodes, Else, Location</maml:para>
+        <maml:para>- For: Type, VariableName, CollectionExpression, Nodes, Else, Location</maml:para>
+        <maml:para>- Include: Type, TargetExpression, Parameters, Location</maml:para>
+        <maml:para>- IncludeRelative: Type, TargetExpression, Parameters, Location</maml:para>
+        <maml:para>- CustomTag: Type, Name, Markup, Location</maml:para>
+        <maml:para></maml:para>
+        <maml:para>Security: - ConvertTo-LiquidAst is parse-only.</maml:para>
+        <maml:para>- It does not evaluate context data, includes, filters, or custom tag handlers.</maml:para>
+        <maml:para>- Prefer it for editor tooling, diagnostics, linting, and safe inspection of untrusted templates.</maml:para>
+      </maml:alert>
     </maml:alertSet>
     <command:examples>
       <command:example>
@@ -211,6 +261,30 @@
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
         <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="5" aliases="none">
+          <maml:name>CurrentFilePath</maml:name>
+          <maml:description>
+            <maml:para>The current template file path used for tags such as `include_relative`.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="6" aliases="none">
+          <maml:name>RelativeIncludeRoot</maml:name>
+          <maml:description>
+            <maml:para>The allowed root for `include_relative` resolution.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="7" aliases="none">
           <maml:name>IncludeStack</maml:name>
           <maml:description>
             <maml:para>The current include stack, primarily used internally for recursion detection.</maml:para>
@@ -222,7 +296,7 @@
           </dev:type>
           <dev:defaultValue>@()</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="6" aliases="none">
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="8" aliases="none">
           <maml:name>Registry</maml:name>
           <maml:description>
             <maml:para>The extension registry containing custom tags and filters.</maml:para>
@@ -233,6 +307,18 @@
             <maml:uri />
           </dev:type>
           <dev:defaultValue>(New-LiquidExtensionRegistry)</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+          <maml:name>ProgressAction</maml:name>
+          <maml:description>
+            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <dev:type>
+            <maml:name>ActionPreference</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
       </command:syntaxItem>
     </command:syntax>
@@ -286,6 +372,30 @@
         <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
       <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="5" aliases="none">
+        <maml:name>CurrentFilePath</maml:name>
+        <maml:description>
+          <maml:para>The current template file path used for tags such as `include_relative`.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="6" aliases="none">
+        <maml:name>RelativeIncludeRoot</maml:name>
+        <maml:description>
+          <maml:para>The allowed root for `include_relative` resolution.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="7" aliases="none">
         <maml:name>IncludeStack</maml:name>
         <maml:description>
           <maml:para>The current include stack, primarily used internally for recursion detection.</maml:para>
@@ -297,7 +407,7 @@
         </dev:type>
         <dev:defaultValue>@()</dev:defaultValue>
       </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="6" aliases="none">
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="8" aliases="none">
         <maml:name>Registry</maml:name>
         <maml:description>
           <maml:para>The extension registry containing custom tags and filters.</maml:para>
@@ -308,6 +418,18 @@
           <maml:uri />
         </dev:type>
         <dev:defaultValue>(New-LiquidExtensionRegistry)</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+        <maml:name>ProgressAction</maml:name>
+        <maml:description>
+          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <dev:type>
+          <maml:name>ActionPreference</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
     </command:parameters>
     <command:inputTypes />
@@ -337,6 +459,13 @@
       <command:example>
         <maml:title>-------------------------- EXAMPLE 2 --------------------------</maml:title>
         <dev:code>Invoke-LiquidTemplate -Template '{% include card.html %}' -Context @{} -Dialect JekyllLiquid -IncludeRoot .\_includes</dev:code>
+        <dev:remarks>
+          <maml:para></maml:para>
+        </dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- EXAMPLE 3 --------------------------</maml:title>
+        <dev:code>Invoke-LiquidTemplate -Template '{% include_relative snippet.md %}' -Context @{} -Dialect JekyllLiquid -CurrentFilePath .\_posts\2026-03-29-example.md -RelativeIncludeRoot .\_posts</dev:code>
         <dev:remarks>
           <maml:para></maml:para>
         </dev:remarks>
@@ -381,6 +510,18 @@
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+          <maml:name>ProgressAction</maml:name>
+          <maml:description>
+            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <dev:type>
+            <maml:name>ActionPreference</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -408,6 +549,18 @@
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+        <maml:name>ProgressAction</maml:name>
+        <maml:description>
+          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <dev:type>
+          <maml:name>ActionPreference</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes />
     <command:returnValues>
@@ -421,7 +574,9 @@
       </command:returnValue>
     </command:returnValues>
     <maml:alertSet>
-      <maml:alert />
+      <maml:alert>
+        <maml:para></maml:para>
+      </maml:alert>
     </maml:alertSet>
     <command:examples>
       <command:example>
@@ -497,6 +652,18 @@
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+          <maml:name>ProgressAction</maml:name>
+          <maml:description>
+            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <dev:type>
+            <maml:name>ActionPreference</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -548,11 +715,25 @@
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+        <maml:name>ProgressAction</maml:name>
+        <maml:description>
+          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <dev:type>
+          <maml:name>ActionPreference</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes />
     <command:returnValues />
     <maml:alertSet>
-      <maml:alert />
+      <maml:alert>
+        <maml:para></maml:para>
+      </maml:alert>
     </maml:alertSet>
     <command:examples>
       <command:example>
@@ -628,6 +809,18 @@
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+          <maml:name>ProgressAction</maml:name>
+          <maml:description>
+            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <dev:type>
+            <maml:name>ActionPreference</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -679,13 +872,35 @@
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+        <maml:name>ProgressAction</maml:name>
+        <maml:description>
+          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <dev:type>
+          <maml:name>ActionPreference</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes />
     <command:returnValues />
     <maml:alertSet>
-      <maml:alert />
+      <maml:alert>
+        <maml:para></maml:para>
+      </maml:alert>
     </maml:alertSet>
-    <command:examples />
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- EXAMPLE 1 --------------------------</maml:title>
+        <dev:code>Example&lt;/title&gt;' }</dev:code>
+        <dev:remarks>
+          <maml:para></maml:para>
+        </dev:remarks>
+      </command:example>
+    </command:examples>
     <command:relatedLinks />
   </command:command>
   <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10" xmlns:MSHelp="http://msdn.microsoft.com/mshelp">
@@ -728,6 +943,18 @@
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+          <maml:name>ProgressAction</maml:name>
+          <maml:description>
+            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <dev:type>
+            <maml:name>ActionPreference</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -755,11 +982,25 @@
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
+        <maml:name>ProgressAction</maml:name>
+        <maml:description>
+          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <dev:type>
+          <maml:name>ActionPreference</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
     </command:parameters>
     <command:inputTypes />
     <command:returnValues />
     <maml:alertSet>
-      <maml:alert />
+      <maml:alert>
+        <maml:para></maml:para>
+      </maml:alert>
     </maml:alertSet>
     <command:examples>
       <command:example>

@@ -1,32 +1,38 @@
-#Requires -Version 7.0
+﻿#Requires -Version 7.0
 
 [CmdletBinding()]
 param(
     [string]$ModuleManifestPath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'PowerLiquid.psd1'),
 
-    [string]$HelpSourcePath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'docs\help'),
+    [string]$MarkdownOutputPath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'docs'),
+
+    [string]$ExternalHelpOutputPath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'en-US'),
 
     [switch]$Force
 )
 
-break
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Generate PlatyPS markdown help source for the module and its public commands.
 Import-Module PlatyPS -MinimumVersion 0.14.2 -ErrorAction Stop
 
 $resolvedManifestPath = [System.IO.Path]::GetFullPath($ModuleManifestPath)
-$resolvedHelpSourcePath = [System.IO.Path]::GetFullPath($HelpSourcePath)
-$moduleRoot = Split-Path -Parent $resolvedManifestPath
+$resolvedMarkdownOutputPath = [System.IO.Path]::GetFullPath($MarkdownOutputPath)
+$resolvedExternalHelpOutputPath = [System.IO.Path]::GetFullPath($ExternalHelpOutputPath)
 
 if (-not (Test-Path -LiteralPath $resolvedManifestPath -PathType Leaf)) {
     throw "Could not find the module manifest at '$resolvedManifestPath'."
 }
 
-if (-not (Test-Path -LiteralPath $resolvedHelpSourcePath -PathType Container)) {
-    New-Item -ItemType Directory -Path $resolvedHelpSourcePath -Force | Out-Null
+if ($Force -and (Test-Path -LiteralPath $resolvedMarkdownOutputPath -PathType Container)) {
+    Get-ChildItem -LiteralPath $resolvedMarkdownOutputPath -Filter '*.md' -File -ErrorAction SilentlyContinue |
+        Remove-Item -Force
+}
+
+foreach ($path in @($resolvedMarkdownOutputPath, $resolvedExternalHelpOutputPath)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Container)) {
+        New-Item -ItemType Directory -Path $path -Force | Out-Null
+    }
 }
 
 Write-Verbose "Importing module from '$resolvedManifestPath'."
@@ -34,17 +40,8 @@ Import-Module $resolvedManifestPath -Force -ErrorAction Stop
 
 $moduleName = (Test-ModuleManifest -Path $resolvedManifestPath).Name
 
-# When -Force is used, clear previously generated markdown so the regenerated help matches the current code comments.
-if ($Force) {
-    Get-ChildItem -Path $resolvedHelpSourcePath -Filter '*.md' -File -ErrorAction SilentlyContinue |
-        Remove-Item -Force
-}
+Write-Verbose "Generating markdown help from comment-based help into '$resolvedMarkdownOutputPath'."
+New-MarkdownHelp -Module $moduleName -OutputFolder $resolvedMarkdownOutputPath -WithModulePage -Force | Out-Null
 
-Write-Verbose "Generating markdown help for module '$moduleName' into '$resolvedHelpSourcePath'."
-New-MarkdownHelp -Module $moduleName -OutputFolder $resolvedHelpSourcePath -WithModulePage -Force:$Force.IsPresent | Out-Null
-
-break
-
-New-ExternalHelp -Path .\docs\help\ -OutputPath .\en-US\ -Verbose -ShowProgress -Force
-
-
+Write-Verbose "Generating external help into '$resolvedExternalHelpOutputPath'."
+New-ExternalHelp -Path $resolvedMarkdownOutputPath -OutputPath $resolvedExternalHelpOutputPath -Force -Verbose
