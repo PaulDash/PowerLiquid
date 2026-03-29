@@ -84,5 +84,36 @@ Describe 'PowerLiquid module' {
 
         $result | Should -Be '2026'
     }
+
+    It 'supports include_relative beneath the configured relative root' {
+        $templateRoot = Join-Path -Path $TestDrive -ChildPath 'relative-include-root'
+        $postsRoot = Join-Path -Path $templateRoot -ChildPath '_posts'
+        $postPath = Join-Path -Path $postsRoot -ChildPath '2026-03-29-example.md'
+        $snippetDirectory = Join-Path -Path $postsRoot -ChildPath 'snippets'
+        $snippetPath = Join-Path -Path $snippetDirectory -ChildPath 'card.txt'
+
+        [void](New-Item -Path $snippetDirectory -ItemType Directory -Force)
+        Set-Content -LiteralPath $postPath -Encoding UTF8 -Value '{% include_relative snippets/card.txt %}'
+        Set-Content -LiteralPath $snippetPath -Encoding UTF8 -Value 'Relative include content'
+
+        $result = Invoke-LiquidTemplate -Template (Get-Content -LiteralPath $postPath -Raw) -Context @{} -Dialect JekyllLiquid -CurrentFilePath $postPath -RelativeIncludeRoot $postsRoot
+
+        $result.Trim() | Should -Be 'Relative include content'
+    }
+
+    It 'rejects include_relative paths that escape the configured relative root' {
+        $templateRoot = Join-Path -Path $TestDrive -ChildPath 'relative-include-escape-root'
+        $postsRoot = Join-Path -Path $templateRoot -ChildPath '_posts'
+        $postPath = Join-Path -Path $postsRoot -ChildPath '2026-03-29-example.md'
+        $outsidePath = Join-Path -Path $templateRoot -ChildPath 'outside.txt'
+
+        [void](New-Item -Path $postsRoot -ItemType Directory -Force)
+        Set-Content -LiteralPath $postPath -Encoding UTF8 -Value '{% include_relative ../outside.txt %}'
+        Set-Content -LiteralPath $outsidePath -Encoding UTF8 -Value 'Outside'
+
+        {
+            Invoke-LiquidTemplate -Template (Get-Content -LiteralPath $postPath -Raw) -Context @{} -Dialect JekyllLiquid -CurrentFilePath $postPath -RelativeIncludeRoot $postsRoot
+        } | Should -Throw -ExpectedMessage '*include_relative*outside the allowed relative include root*'
+    }
 }
 

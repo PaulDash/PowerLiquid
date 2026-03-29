@@ -18,6 +18,10 @@ The root variable scope used during rendering.
 The Liquid dialect to render with.
 .PARAMETER IncludeRoot
 The base path used when resolving include files.
+.PARAMETER CurrentFilePath
+The current template file path used for tags such as `include_relative`.
+.PARAMETER RelativeIncludeRoot
+The allowed root for `include_relative` resolution.
 .PARAMETER IncludeStack
 The current include stack, primarily used internally for recursion detection.
 .PARAMETER Registry
@@ -32,6 +36,8 @@ System.String
 Invoke-LiquidTemplate -Template 'Hello {{ user.name }}' -Context @{ user = @{ name = 'Paul' } }
 .EXAMPLE
 Invoke-LiquidTemplate -Template '{% include card.html %}' -Context @{} -Dialect JekyllLiquid -IncludeRoot .\_includes
+.EXAMPLE
+Invoke-LiquidTemplate -Template '{% include_relative snippet.md %}' -Context @{} -Dialect JekyllLiquid -CurrentFilePath .\_posts\2026-03-29-example.md -RelativeIncludeRoot .\_posts
 #>
 function Invoke-LiquidTemplate {
     [CmdletBinding()]
@@ -49,6 +55,10 @@ function Invoke-LiquidTemplate {
 
         [string]$IncludeRoot,
 
+        [string]$CurrentFilePath,
+
+        [string]$RelativeIncludeRoot,
+
         [string[]]$IncludeStack = @(),
 
         [hashtable]$Registry = (New-LiquidExtensionRegistry)
@@ -58,7 +68,7 @@ function Invoke-LiquidTemplate {
 
     Write-Verbose "Rendering template with dialect '$Dialect'"
 
-    $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -IncludeStack $IncludeStack -Registry $Registry
+    $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -CurrentFilePath $CurrentFilePath -RelativeIncludeRoot $RelativeIncludeRoot -IncludeStack $IncludeStack -Registry $Registry
     Write-Verbose "Created runtime with $($Context.Count) context variables"
 
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
@@ -69,4 +79,3 @@ function Invoke-LiquidTemplate {
 
     return $result
 }
-

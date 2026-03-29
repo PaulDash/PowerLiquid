@@ -730,6 +730,15 @@ function parseLiquidNode {
                 })
                 $Index.Value++
             }
+            'include_relative' {
+                $includeMarkup = parseLiquidIncludeMarkup -Markup $tagParts.Markup
+                [void]$nodes.Add([pscustomobject]@{
+                    Type             = 'IncludeRelative'
+                    TargetExpression = $includeMarkup.TargetExpression
+                    Parameters       = $includeMarkup.Parameters
+                })
+                $Index.Value++
+            }
             '' {
                 $Index.Value++
             }
@@ -1490,6 +1499,10 @@ function newLiquidRuntime {
 
         [string]$IncludeRoot,
 
+        [string]$CurrentFilePath,
+
+        [string]$RelativeIncludeRoot,
+
         [string[]]$IncludeStack = @(),
 
         [hashtable]$Registry
@@ -1500,11 +1513,13 @@ function newLiquidRuntime {
     [void]$scopes.Add((ConvertToLiquidSafeValue -Value $Context -Registry $Registry))
 
     return @{
-        Scopes       = $scopes
-        Dialect      = $Dialect
-        IncludeRoot  = $IncludeRoot
-        IncludeStack = @($IncludeStack)
-        Registry     = if ($null -ne $Registry) { $Registry } else { newLiquidExtensionRegistry }
+        Scopes              = $scopes
+        Dialect             = $Dialect
+        IncludeRoot         = $IncludeRoot
+        CurrentFilePath     = $CurrentFilePath
+        RelativeIncludeRoot = $RelativeIncludeRoot
+        IncludeStack        = @($IncludeStack)
+        Registry            = if ($null -ne $Registry) { $Registry } else { newLiquidExtensionRegistry }
     }
 }
 
@@ -1570,6 +1585,44 @@ function Resolve-LiquidIncludePath {
     return $resolvedIncludePath
 }
 
+function Resolve-LiquidRelativeIncludePath {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$IncludeTarget,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Runtime
+    )
+
+    # include_relative resolves from the current template file, but hosts still choose the allowed root.
+    if ([string]::IsNullOrWhiteSpace($Runtime.CurrentFilePath)) {
+        throw "Liquid include_relative requires the current template file path to be provided by the host."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Runtime.RelativeIncludeRoot)) {
+        throw "Liquid include_relative is not allowed because no relative include root is configured for the current template."
+    }
+
+    $normalizedTarget = $IncludeTarget.Replace('/', [System.IO.Path]::DirectorySeparatorChar).Replace('\', [System.IO.Path]::DirectorySeparatorChar)
+    $currentDirectory = Split-Path -Path $Runtime.CurrentFilePath -Parent
+    $includePath = Join-Path -Path $currentDirectory -ChildPath $normalizedTarget
+    $resolvedIncludePath = [System.IO.Path]::GetFullPath($includePath)
+    $resolvedRelativeRoot = [System.IO.Path]::GetFullPath($Runtime.RelativeIncludeRoot)
+
+    if (-not $resolvedIncludePath.StartsWith($resolvedRelativeRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase) -and
+        ($resolvedIncludePath -ne $resolvedRelativeRoot)) {
+        throw "Liquid include_relative '$IncludeTarget' resolves outside the allowed relative include root."
+    }
+
+    if (-not (Test-Path -LiteralPath $resolvedIncludePath -PathType Leaf)) {
+        throw "Could not locate the include_relative file '$IncludeTarget' beneath '$resolvedRelativeRoot'."
+    }
+
+    return $resolvedIncludePath
+}
+
 function Invoke-LiquidInclude {
     [CmdletBinding()]
     [OutputType([string])]
@@ -1621,7 +1674,52 @@ function Invoke-LiquidInclude {
 
     $includeContext['include'] = $includeVariables
     $template = Get-Content -LiteralPath $includePath -Raw
-    return Invoke-LiquidTemplate -Template $template -Context $includeContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -IncludeStack ($Runtime.IncludeStack + $includePath) -Registry $Runtime.Registry
+    return Invoke-LiquidTemplate -Template $template -Context $includeContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -CurrentFilePath $includePath -RelativeIncludeRoot $Runtime.RelativeIncludeRoot -IncludeStack ($Runtime.IncludeStack + $includePath) -Registry $Runtime.Registry
+}
+
+function Invoke-LiquidRelativeInclude {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        $Node,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Runtime
+    )
+
+    if ($Runtime.Dialect -ne 'JekyllLiquid') {
+        throw "Liquid tag 'include_relative' is not supported in the '$($Runtime.Dialect)' dialect."
+    }
+
+    $includeTarget = Resolve-LiquidExpression -Expression $Node.TargetExpression -Runtime $Runtime
+    $includeName = ConvertTo-LiquidOutputString -Value $includeTarget
+    if ([string]::IsNullOrWhiteSpace($includeName)) {
+        $includeName = $Node.TargetExpression.Trim()
+    }
+
+    if ([string]::IsNullOrWhiteSpace($includeName)) {
+        throw "Liquid include_relative target is empty."
+    }
+
+    $includePath = Resolve-LiquidRelativeIncludePath -IncludeTarget $includeName -Runtime $Runtime
+    if ($Runtime.IncludeStack -contains $includePath) {
+        throw "Liquid include_relative '$includeName' is recursively including itself."
+    }
+
+    $includeContext = @{}
+    foreach ($scope in $Runtime.Scopes) {
+        if ($scope -is [System.Collections.IDictionary]) {
+            foreach ($key in $scope.Keys) {
+                if (-not $includeContext.ContainsKey($key)) {
+                    $includeContext[$key] = $scope[$key]
+                }
+            }
+        }
+    }
+
+    $template = Get-Content -LiteralPath $includePath -Raw
+    return Invoke-LiquidTemplate -Template $template -Context $includeContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -CurrentFilePath $includePath -RelativeIncludeRoot $Runtime.RelativeIncludeRoot -IncludeStack ($Runtime.IncludeStack + $includePath) -Registry $Runtime.Registry
 }
 
 function ConvertTo-LiquidEnumerable {
@@ -1736,9 +1834,11 @@ function ConvertFrom-LiquidNode {
                         removeLiquidScope -Runtime $Runtime
                     }
                 }
-            }
-            'Include' {
+            }            'Include' {
                 [void]$builder.Append((Invoke-LiquidInclude -Node $node -Runtime $Runtime))
+            }
+            'IncludeRelative' {
+                [void]$builder.Append((Invoke-LiquidRelativeInclude -Node $node -Runtime $Runtime))
             }
             'CustomTag' {
                 $customTag = Get-LiquidCustomTag -Name $node.Name -Runtime $Runtime
@@ -1873,6 +1973,10 @@ function Invoke-LiquidTemplate {
 
         [string]$IncludeRoot,
 
+        [string]$CurrentFilePath,
+
+        [string]$RelativeIncludeRoot,
+
         [string[]]$IncludeStack = @(),
 
         [hashtable]$Registry = (newLiquidExtensionRegistry)
@@ -1880,10 +1984,16 @@ function Invoke-LiquidTemplate {
 
     AssertLiquidDialect -Dialect $Dialect
 
-    $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -IncludeStack $IncludeStack -Registry $Registry
+    $runtime = newLiquidRuntime -Context $Context -Dialect $Dialect -IncludeRoot $IncludeRoot -CurrentFilePath $CurrentFilePath -RelativeIncludeRoot $RelativeIncludeRoot -IncludeStack $IncludeStack -Registry $Registry
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+
+
+
+
+
 
 
 

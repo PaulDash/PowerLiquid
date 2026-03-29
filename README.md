@@ -17,7 +17,7 @@ PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rende
 - control-flow tags such as `if`, `elsif`, `else`, `unless`, and `for`
 - `assign` and `capture`
 - `comment` and `raw`
-- `include` support in the `JekyllLiquid` dialect
+- `include` and `include_relative` support in the `JekyllLiquid` dialect
 - custom tags and filters through an extension registry
 - separate `Liquid` and `JekyllLiquid` dialects
 - a practical starter set of built-in filters
@@ -45,7 +45,8 @@ The base `Liquid` dialect stays focused on core Liquid syntax.
 The `JekyllLiquid` dialect layers Jekyll-specific behavior such as:
 
 - Jekyll filters
-- Jekyll-style `{% include %}`
+- Jekyll-style {% include %}`r
+- Jekyll-style {% include_relative %} when the host supplies the current file path and an allowed relative root
 
 ## Host Extension Model
 
@@ -200,3 +201,4 @@ We welcome contributions! Please follow these guidelines:
 
 - Use GitHub issues for bugs and feature requests.
 - Include template examples, expected vs. actual output, and PowerShell version.
+

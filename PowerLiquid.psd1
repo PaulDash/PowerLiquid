@@ -1,6 +1,6 @@
-﻿@{
+@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.8.6'
+    ModuleVersion     = '0.8.7'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
@@ -51,7 +51,7 @@
             - explicit dialect support
             - host-controlled extensibility
 
-            # 0.8.6
+            # 0.8.7
             Features:
             - Liquid template tokenization
             - AST generation through ConvertTo-LiquidAst
@@ -59,6 +59,7 @@
             - control-flow tags such as if/elsif/else/unless/for, assign and capture, comment and raw blocks
             - custom tags and filters through an extension registry with trusted type registration
             - separate Liquid and JekyllLiquid dialects
+            - Jekyll-style include_relative support with host-controlled current-file and allowed-root resolution
             '
         }
     }
