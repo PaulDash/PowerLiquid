@@ -1,4 +1,4 @@
-# PowerLiquid
+# PowerLiquid ![PowerLiquid]('https://raw.githubusercontent.com/PaulDash/PowerLiquid/main/res/Icon_85x85.png')
 
 PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rendering Liquid templates.
 
