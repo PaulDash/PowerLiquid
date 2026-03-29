@@ -60,4 +60,64 @@ Describe 'PowerLiquid numeric filter behavior' {
     It 'supports round with precision argument' {
         (Invoke-LiquidTemplate -Template '{{ 3.14159 | round: 2 }}' -Context @{}).Trim() | Should -Be '3.14'
     }
+
+    It 'supports capitalize' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | capitalize }}' -Context @{}).Trim() | Should -Be 'Hello World'
+    }
+
+    It 'supports concat with arrays' {
+        (Invoke-LiquidTemplate -Template '{{ "a,b" | split: "," | concat: ("c" | split: ",") | join: "," }}' -Context @{}).Trim() | Should -Be 'a,b,c'
+    }
+
+    It 'supports newline_to_br' {
+        (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | newline_to_br }}' -Context @{}).Trim() | Should -Be 'line1<br>line2'
+    }
+
+    It 'supports remove' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | remove: "l" }}' -Context @{}).Trim() | Should -Be 'heo word'
+    }
+
+    It 'supports remove_first' {
+        (Invoke-LiquidTemplate -Template '{{ "hello hello" | remove_first: "l" }}' -Context @{}).Trim() | Should -Be 'helo hello'
+    }
+
+    It 'supports remove_last' {
+        (Invoke-LiquidTemplate -Template '{{ "hello hello" | remove_last: "l" }}' -Context @{}).Trim() | Should -Be 'hello helo'
+    }
+
+    It 'supports replace' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | replace: "world", "universe" }}' -Context @{}).Trim() | Should -Be 'hello universe'
+    }
+
+    It 'supports replace_first' {
+        (Invoke-LiquidTemplate -Template '{{ "hello hello" | replace_first: "hello", "hi" }}' -Context @{}).Trim() | Should -Be 'hi hello'
+    }
+
+    It 'supports replace_last' {
+        (Invoke-LiquidTemplate -Template '{{ "hello hello" | replace_last: "hello", "hi" }}' -Context @{}).Trim() | Should -Be 'hello hi'
+    }
+
+    It 'supports reverse for strings' {
+        (Invoke-LiquidTemplate -Template '{{ "hello" | reverse }}' -Context @{}).Trim() | Should -Be 'olleh'
+    }
+
+    It 'supports reverse for arrays' {
+        (Invoke-LiquidTemplate -Template '{{ "a,b,c" | split: "," | reverse | join: "," }}' -Context @{}).Trim() | Should -Be 'c,b,a'
+    }
+
+    It 'supports strip_newlines' {
+        (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | strip_newlines }}' -Context @{}).Trim() | Should -Be 'line1line2'
+    }
+
+    It 'supports truncate' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 5 }}' -Context @{}).Trim() | Should -Be 'hello...'
+    }
+
+    It 'supports truncate with custom suffix' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 5, "!!!" }}' -Context @{}).Trim() | Should -Be 'hello!!!'
+    }
+
+    It 'supports truncatewords' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world from liquid" | truncatewords: 2 }}' -Context @{}).Trim() | Should -Be 'hello world...'
+    }
 }

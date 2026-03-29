@@ -1688,6 +1688,117 @@ function Invoke-LiquidFilter {
             }
             return [math]::Round($value, $precision, [System.MidpointRounding]::AwayFromZero)
         }
+        'capitalize' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ToTitleCase($text.ToLowerInvariant())
+        }
+        'concat' {
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                $result = New-Object System.Collections.ArrayList
+                [void]$result.AddRange($InputObject)
+                if ($Arguments.Count -gt 0 -and $Arguments[0] -is [System.Collections.IEnumerable] -and $Arguments[0] -isnot [string]) {
+                    [void]$result.AddRange($Arguments[0])
+                }
+                return ,@($result.ToArray())
+            }
+            return $InputObject
+        }
+        'newline_to_br' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return $text.Replace('\n', '<br>').Replace('\r', '<br>')
+        }
+        'remove' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $substring = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            return $text.Replace($substring, '')
+        }
+        'remove_first' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $substring = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $index = $text.IndexOf($substring)
+            if ($index -ge 0) {
+                return $text.Remove($index, $substring.Length)
+            }
+            return $text
+        }
+        'remove_last' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $substring = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $index = $text.LastIndexOf($substring)
+            if ($index -ge 0) {
+                return $text.Remove($index, $substring.Length)
+            }
+            return $text
+        }
+        'replace' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $oldValue = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $newValue = ConvertTo-LiquidOutputString -Value $Arguments[1]
+            return $text.Replace($oldValue, $newValue)
+        }
+        'replace_first' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $oldValue = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $newValue = ConvertTo-LiquidOutputString -Value $Arguments[1]
+            $index = $text.IndexOf($oldValue)
+            if ($index -ge 0) {
+                return $text.Remove($index, $oldValue.Length).Insert($index, $newValue)
+            }
+            return $text
+        }
+        'replace_last' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $oldValue = ConvertTo-LiquidOutputString -Value $Arguments[0]
+            $newValue = ConvertTo-LiquidOutputString -Value $Arguments[1]
+            $index = $text.LastIndexOf($oldValue)
+            if ($index -ge 0) {
+                return $text.Remove($index, $oldValue.Length).Insert($index, $newValue)
+            }
+            return $text
+        }
+        'reverse' {
+            if ($InputObject -is [string]) {
+                $chars = $InputObject.ToCharArray()
+                [array]::Reverse($chars)
+                return New-Object string ($chars, 0, $chars.Length)
+            }
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                $array = @($InputObject)
+                [array]::Reverse($array)
+                return ,$array
+            }
+            return $InputObject
+        }
+        'strip_newlines' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return $text.Replace('\n', '').Replace('\r', '')
+        }
+        'truncate' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $length = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            $suffix = '...'
+            if ($Arguments.Count -gt 1) {
+                $suffix = ConvertTo-LiquidOutputString -Value $Arguments[1]
+            }
+            if ($text.Length <= $length) {
+                return $text
+            }
+            return $text.Substring(0, $length) + $suffix
+        }
+        'truncatewords' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            $wordCount = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            $suffix = '...'
+            if ($Arguments.Count -gt 1) {
+                $suffix = ConvertTo-LiquidOutputString -Value $Arguments[1]
+            }
+            $words = $text -split '\s+'
+            if ($words.Count -le $wordCount) {
+                return $text
+            }
+            $truncatedWords = $words[0..($wordCount - 1)]
+            return ($truncatedWords -join ' ') + $suffix
+        }
         'split' { return (ConvertTo-LiquidOutputString -Value $InputObject).Split([string]$Arguments[0], [System.StringSplitOptions]::None) }
         'join' {
             if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
@@ -1766,26 +1877,13 @@ function Invoke-LiquidFilter {
 
             return (ConvertTo-Json -InputObject $InputObject -Depth 20 -Compress)
         }
-        # TODO: Add Liquid filter support for capitalize.
-        # TODO: Add Liquid filter support for concat.
         # TODO: Add Liquid filter support for date.
         # TODO: Add Liquid filter support for map.
-        # TODO: Add Liquid filter support for newline_to_br.
-        # TODO: Add Liquid filter support for remove.
-        # TODO: Add Liquid filter support for remove_first.
-        # TODO: Add Liquid filter support for remove_last.
-        # TODO: Add Liquid filter support for replace.
-        # TODO: Add Liquid filter support for replace_first.
-        # TODO: Add Liquid filter support for replace_last.
-        # TODO: Add Liquid filter support for reverse.
         # TODO: Add Liquid filter support for slice.
         # TODO: Add Liquid filter support for sort.
         # TODO: Add Liquid filter support for sort_natural.
         # TODO: Add Liquid filter support for strip_html.
-        # TODO: Add Liquid filter support for strip_newlines.
         # TODO: Add Liquid filter support for sum.
-        # TODO: Add Liquid filter support for truncate.
-        # TODO: Add Liquid filter support for truncatewords.
         # TODO: Add Liquid filter support for uniq.
         # TODO: Add Liquid filter support for url_decode.
         # TODO: Add Liquid filter support for url_encode.
@@ -1826,7 +1924,7 @@ function Resolve-LiquidExpression {
             )
             $arguments = @(
                 $argumentExpressions |
-                    ForEach-Object { ConvertTo-LiquidLiteralValue -Expression $_ -Runtime $Runtime }
+                    ForEach-Object { Resolve-LiquidExpression -Expression $_ -Runtime $Runtime }
             )
         }
 
