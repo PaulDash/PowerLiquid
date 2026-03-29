@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added Shopify-style whitespace control for {{-, -}}, {%-, and -%} delimiters
+
+
 ## [0.9.1] - 2026-03-29
 
 ### Added
@@ -80,3 +85,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Various parsing and rendering improvements
+
+
+

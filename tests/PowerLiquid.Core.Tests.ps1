@@ -40,6 +40,42 @@ Describe 'PowerLiquid core behavior' {
         $outputToken.Location.StartColumn | Should -Be 3
     }
 
+    It 'supports whitespace control on the right side of tags' {
+        $template = "{% assign my_variable = ""tomato"" -%}`n{{ my_variable }}"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{}
+        $result | Should -Be 'tomato'
+    }
+
+    It 'supports bidirectional whitespace control around tags and output' {
+        $template = "{% assign username = ""John G. Chalmers-Smith"" -%}`n{%- if username and username.size > 10 -%}`n  Wow, {{ username -}} , you have a long name!`n{%- else -%}`n  Hello there!`n{%- endif %}"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{}
+        $result | Should -Be 'Wow, John G. Chalmers-Smith, you have a long name!'
+    }
+
+    It 'supports whitespace control on the left side of output blocks' {
+        $template = "Hello `n  {{- user.name }}"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{ user = @{ name = 'Paul' } }
+        $result | Should -Be 'HelloPaul'
+    }
+
+    It 'supports whitespace control on the right side of output blocks' {
+        $template = "{{ user.name -}} `nfriend"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{ user = @{ name = 'Paul' } }
+        $result | Should -Be 'Paulfriend'
+    }
+
+    It 'trims whitespace across adjacent control-flow tags' {
+        $template = "A`n{%- if show -%}`nB`n{%- endif -%}`nC"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{ show = $true }
+        $result | Should -Be 'ABC'
+    }
+
+    It 'preserves whitespace trim metadata on tokens' {
+        $ast = ConvertTo-LiquidAst -Template "x {{- user.name -}} y" -IncludeTokens
+        $outputToken = $ast.Tokens | Where-Object { $_.Type -eq 'Output' } | Select-Object -First 1
+        $outputToken.TrimLeft | Should -BeTrue
+        $outputToken.TrimRight | Should -BeTrue
+    }
     It 'renders a basic object expression' {
         $result = Invoke-LiquidTemplate -Template 'Hello {{ user.name }}' -Context @{ user = @{ name = 'Paul' } }
         $result | Should -Be 'Hello Paul'
@@ -139,3 +175,10 @@ Describe 'PowerLiquid core behavior' {
         { Invoke-LiquidTemplate -Template '{% break %}' -Context @{} } | Should -Throw -ExpectedMessage 'Invoke-LiquidTemplate failed:*break tag can only be used inside for or tablerow loops*'
     }
 }
+
+
+
+
+
+
+

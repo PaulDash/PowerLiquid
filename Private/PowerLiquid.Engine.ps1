@@ -430,6 +430,34 @@ function getLiquidTokenLocation {
     return newLiquidSourceLocation -StartIndex $Token.StartIndex -StartLine $Token.StartLine -StartColumn $Token.StartColumn -EndIndex $Token.EndIndex -EndLine $Token.EndLine -EndColumn $Token.EndColumn
 }
 # Tokenization and markup parsing turn template text into the normalized parser input stream.
+function Apply-LiquidWhitespaceControl {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.ArrayList]$Tokens
+    )
+
+    # Hyphen delimiters trim only the text immediately adjacent to a tag or output block.
+    # Normalize neighboring text tokens before parsing so render-time logic stays simple.
+    for ($index = 0; $index -lt $Tokens.Count; $index++) {
+        $token = $Tokens[$index]
+        if ($token.Type -eq 'Text') {
+            continue
+        }
+
+        if ($token.TrimLeft -and $index -gt 0 -and $Tokens[$index - 1].Type -eq 'Text') {
+            $Tokens[$index - 1].Value = [System.Text.RegularExpressions.Regex]::Replace([string]$Tokens[$index - 1].Value, '\s+$', '')
+        }
+
+        if ($token.TrimRight -and $index + 1 -lt $Tokens.Count -and $Tokens[$index + 1].Type -eq 'Text') {
+            $Tokens[$index + 1].Value = [System.Text.RegularExpressions.Regex]::Replace([string]$Tokens[$index + 1].Value, '^\s+', '')
+        }
+    }
+
+    return ,$Tokens.ToArray()
+}
+
 function ConvertTo-LiquidToken {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -474,10 +502,14 @@ function ConvertTo-LiquidToken {
         $matchEnd = getLiquidAdvancedTextPosition -Text $match.Value -StartLine $line -StartColumn $column
         $tokenType = if ($match.Value.StartsWith('{{')) { 'Output' } else { 'Tag' }
         $tokenValue = if ($tokenType -eq 'Output') { $match.Groups[1].Value.Trim() } else { $match.Groups[2].Value.Trim() }
+        $trimLeft = $match.Value.StartsWith('{{-') -or $match.Value.StartsWith('{%-')
+        $trimRight = $match.Value.EndsWith('-}}') -or $match.Value.EndsWith('-%}')
         [void]$tokens.Add([pscustomobject]@{
             Type        = $tokenType
             Raw         = $match.Value
             Value       = $tokenValue
+            TrimLeft    = $trimLeft
+            TrimRight   = $trimRight
             StartIndex  = $match.Index
             StartLine   = $line
             StartColumn = $column
@@ -509,7 +541,7 @@ function ConvertTo-LiquidToken {
         })
     }
 
-    return ,$tokens.ToArray()
+    return (Apply-LiquidWhitespaceControl -Tokens $tokens)
 }
 function getLiquidTagPart {
     [CmdletBinding()]
@@ -3208,8 +3240,3 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
-
-
-
-
-

@@ -20,7 +20,6 @@ PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rende
 
 Almost everything (object types, tags, filters) of what is documented at [this Liquid page](https://shopify.github.io/liquid/) is working as of PowerLiquid version 1.0.0. The only missing features are:
 
-- Whitespace control
 - "liquid" tag (from Liquid version 5.0.0)
 - inline comments inside tags (from Liquid version 5.4.0)
 
