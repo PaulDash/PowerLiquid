@@ -45,6 +45,27 @@ Describe 'PowerLiquid core behavior' {
         $result | Should -Be 'Hello Paul'
     }
 
+    It 'creates an EmptyDrop object for the empty literal' {
+        $module = Get-Module PowerLiquid
+        $emptyDrop = & $module { New-LiquidEmptyDrop }
+        $emptyDrop.PSTypeNames | Should -Contain 'PowerLiquid.EmptyDrop'
+    }
+
+    It 'treats EmptyDrop as truthy and distinct from nil' {
+        (Invoke-LiquidTemplate -Template '{% if empty %}yes{% else %}no{% endif %}' -Context @{}).Trim() | Should -Be 'yes'
+        (Invoke-LiquidTemplate -Template '{% if missing == empty %}yes{% else %}no{% endif %}' -Context @{}).Trim() | Should -Be 'no'
+    }
+
+    It 'compares empty against empty strings and empty arrays' {
+        (Invoke-LiquidTemplate -Template '{% if text == empty %}yes{% else %}no{% endif %}' -Context @{ text = '' }).Trim() | Should -Be 'yes'
+        (Invoke-LiquidTemplate -Template '{% if items == empty %}yes{% else %}no{% endif %}' -Context @{ items = @() }).Trim() | Should -Be 'yes'
+    }
+
+    It 'returns EmptyDrop for missing nested members on defined objects' {
+        $template = '{% unless pages.about-us == empty %}missing{% else %}empty{% endunless %}'
+        (Invoke-LiquidTemplate -Template $template -Context @{ pages = @{} }).Trim() | Should -Be 'empty'
+    }
+
     It 'does not execute script-backed properties from context data' {
         $script:dangerousGetterInvoked = $false
         $user = [pscustomobject]@{ Name = 'Paul' }

@@ -1404,14 +1404,14 @@ function Resolve-LiquidVariable {
             }
 
             if (-not $resolvedMember) {
-                $value = $null
+                $value = New-LiquidEmptyDrop
                 break
             }
 
             $value = $resolvedMemberValue
         }
 
-        if ($null -ne $value) {
+        if ($foundValue) {
             if (($value -is [System.Collections.IEnumerable]) -and
                 ($value -isnot [string]) -and
                 ($value -isnot [System.Collections.IDictionary]) -and
@@ -1420,11 +1420,91 @@ function Resolve-LiquidVariable {
                 return
             }
 
-            return $value
+            Write-Output -InputObject $value -NoEnumerate
+            return
         }
     }
 
     return $null
+}
+
+function New-LiquidEmptyDrop {
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param()
+
+    # EmptyDrop is a truthy sentinel for "defined, but has no value" objects.
+    return [pscustomobject]@{
+        PSTypeName = 'PowerLiquid.EmptyDrop'
+    }
+}
+
+function Test-LiquidEmptyDrop {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        $Value
+    )
+
+    return ($null -ne $Value -and $Value.PSTypeNames -contains 'PowerLiquid.EmptyDrop')
+}
+
+function Test-LiquidEmptyValue {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        $Value
+    )
+
+    if (Test-LiquidEmptyDrop -Value $Value) {
+        return $true
+    }
+
+    if ($null -eq $Value) {
+        return $false
+    }
+
+    if ($Value -is [string]) {
+        return ($Value.Length -eq 0)
+    }
+
+    if ($Value -is [System.Collections.IDictionary]) {
+        return ($Value.Count -eq 0)
+    }
+
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $enumerator = $Value.GetEnumerator()
+        try {
+            return (-not $enumerator.MoveNext())
+        }
+        finally {
+            if ($enumerator -is [System.IDisposable]) {
+                $enumerator.Dispose()
+            }
+        }
+    }
+
+    return $false
+}
+
+function Test-LiquidValuesEqual {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        $Left,
+        $Right
+    )
+
+    # `empty` comparisons include EmptyDrop, empty strings, and empty arrays.
+    if (Test-LiquidEmptyDrop -Value $Left) {
+        return Test-LiquidEmptyValue -Value $Right
+    }
+
+    if (Test-LiquidEmptyDrop -Value $Right) {
+        return Test-LiquidEmptyValue -Value $Left
+    }
+
+    return ($Left -eq $Right)
 }
 
 function ConvertTo-LiquidLiteralValue {
@@ -1450,7 +1530,7 @@ function ConvertTo-LiquidLiteralValue {
         'false' { return $false }
         'nil' { return $null }
         'null' { return $null }
-        'empty' { return '' }
+        'empty' { return (New-LiquidEmptyDrop) }
     }
 
     if ($trimmedExpression -match '^-?\d+$') {
@@ -1517,6 +1597,10 @@ function ConvertTo-LiquidOutputString {
 
     # Rendering normalizes nulls to empty strings and flattens simple enumerable values.
     if ($null -eq $Value) {
+        return ''
+    }
+
+    if (Test-LiquidEmptyDrop -Value $Value) {
         return ''
     }
 
@@ -2225,8 +2309,8 @@ function Invoke-LiquidComparison {
     $right = ConvertTo-LiquidLiteralValue -Expression $Tokens[2] -Runtime $Runtime
 
     switch ($operator) {
-        '==' { return ($left -eq $right) }
-        '!=' { return ($left -ne $right) }
+        '==' { return (Test-LiquidValuesEqual -Left $left -Right $right) }
+        '!=' { return (-not (Test-LiquidValuesEqual -Left $left -Right $right)) }
         '>' { return ($left -gt $right) }
         '<' { return ($left -lt $right) }
         '>=' { return ($left -ge $right) }
