@@ -1656,6 +1656,38 @@ function Invoke-LiquidFilter {
             if ($right -eq 0) { throw 'Liquid modulo by zero is not allowed.' }
             return $left % $right
         }
+        'abs' {
+            $value = ConvertTo-LiquidNumericValue -Value $InputObject
+            return [math]::Abs($value)
+        }
+        'at_least' {
+            $value = ConvertTo-LiquidNumericValue -Value $InputObject
+            $min = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            if ($value -lt $min) {
+                return $min
+            }
+            return $value
+        }
+        'at_most' {
+            $value = ConvertTo-LiquidNumericValue -Value $InputObject
+            $max = ConvertTo-LiquidNumericValue -Value $Arguments[0]
+            if ($value -gt $max) {
+                return $max
+            }
+            return $value
+        }
+        'floor' {
+            $value = ConvertTo-LiquidNumericValue -Value $InputObject
+            return [math]::Floor($value)
+        }
+        'round' {
+            $value = ConvertTo-LiquidNumericValue -Value $InputObject
+            $precision = 0
+            if ($Arguments.Count -gt 0) {
+                $precision = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            }
+            return [math]::Round($value, $precision, [System.MidpointRounding]::AwayFromZero)
+        }
         'split' { return (ConvertTo-LiquidOutputString -Value $InputObject).Split([string]$Arguments[0], [System.StringSplitOptions]::None) }
         'join' {
             if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
@@ -1734,19 +1766,11 @@ function Invoke-LiquidFilter {
 
             return (ConvertTo-Json -InputObject $InputObject -Depth 20 -Compress)
         }
-        # TODO: Add Liquid filter support for abs.
-        # TODO: Add Liquid filter support for at_least.
-        # TODO: Add Liquid filter support for at_most.
         # TODO: Add Liquid filter support for capitalize.
         # TODO: Add Liquid filter support for concat.
         # TODO: Add Liquid filter support for date.
-        # TODO: Add Liquid filter support for divided_by.
-        # TODO: Add Liquid filter support for floor.
         # TODO: Add Liquid filter support for map.
-        # TODO: Add Liquid filter support for minus.
-        # TODO: Add Liquid filter support for modulo.
         # TODO: Add Liquid filter support for newline_to_br.
-        # TODO: Add Liquid filter support for plus.
         # TODO: Add Liquid filter support for remove.
         # TODO: Add Liquid filter support for remove_first.
         # TODO: Add Liquid filter support for remove_last.
@@ -1754,14 +1778,12 @@ function Invoke-LiquidFilter {
         # TODO: Add Liquid filter support for replace_first.
         # TODO: Add Liquid filter support for replace_last.
         # TODO: Add Liquid filter support for reverse.
-        # TODO: Add Liquid filter support for round.
         # TODO: Add Liquid filter support for slice.
         # TODO: Add Liquid filter support for sort.
         # TODO: Add Liquid filter support for sort_natural.
         # TODO: Add Liquid filter support for strip_html.
         # TODO: Add Liquid filter support for strip_newlines.
         # TODO: Add Liquid filter support for sum.
-        # TODO: Add Liquid filter support for times.
         # TODO: Add Liquid filter support for truncate.
         # TODO: Add Liquid filter support for truncatewords.
         # TODO: Add Liquid filter support for uniq.
@@ -2515,16 +2537,3 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

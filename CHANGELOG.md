@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Numeric filter support: plus, minus, times, divided_by, modulo
+- Arithmetic filter support: abs, at_least, at_most, floor, round
 
 ## [0.8.14] - 2026-03-29
 
