@@ -189,7 +189,7 @@ We welcome contributions! Please follow these guidelines:
 
 ### Host Integration
 
-- support host-provided error policies such as strict variables, strict filters, or warnings-only
+- support host-provided [error modes](https://github.com/Shopify/liquid#error-modes) and policies such as strict variables, strict filters, or warnings-only
 - provide explicit callback hooks for file resolution instead of only built-in include-root handling
 - make dialect definitions data-driven so hosts can define custom dialects (like for [ShopifyThemes](https://shopify.dev/docs/api/liquid))
 

@@ -5,7 +5,7 @@
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
     Copyright         = '© 2026 Paul Dash'
-    Description       = 'Implementation of the Liquid templating language with dialect and extension registry support.'
+    Description       = 'Implementation of the Liquid templating language with multiple dialects and support for extensions.'
     PowerShellVersion = '7.0'
     CompatiblePSEditions = @('Core')
 
@@ -59,4 +59,3 @@
         }
     }
 }
-
