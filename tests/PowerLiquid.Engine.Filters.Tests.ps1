@@ -165,4 +165,3 @@ Describe 'PowerLiquid filter behavior' {
     }
 
 }
-
