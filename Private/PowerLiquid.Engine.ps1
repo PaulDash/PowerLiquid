@@ -1791,9 +1791,54 @@ function Invoke-LiquidFilter {
             }
             return $InputObject
         }
+        'slice' {
+            if ($Arguments.Count -lt 1) { throw "The 'slice' filter requires at least 1 argument: start index" }
+
+            $start = [int](ConvertTo-LiquidNumericValue -Value $Arguments[0])
+            $length = 1
+            if ($Arguments.Count -gt 1) {
+                $length = [int](ConvertTo-LiquidNumericValue -Value $Arguments[1])
+            }
+
+            if ($InputObject -is [string]) {
+                $text = ConvertTo-LiquidOutputString -Value $InputObject
+                $startIndex = if ($start -lt 0) { $text.Length + $start } else { $start }
+                if ($startIndex -lt 0 -or $startIndex -ge $text.Length -or $length -le 0) {
+                    return ''
+                }
+
+                $safeLength = [Math]::Min($length, $text.Length - $startIndex)
+                return $text.Substring($startIndex, $safeLength)
+            }
+
+            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+                $items = @($InputObject)
+                $startIndex = if ($start -lt 0) { $items.Count + $start } else { $start }
+                if ($startIndex -lt 0 -or $startIndex -ge $items.Count -or $length -le 0) {
+                    return ,@()
+                }
+
+                $safeLength = [Math]::Min($length, $items.Count - $startIndex)
+                return ,@($items[$startIndex..($startIndex + $safeLength - 1)])
+            }
+
+            return $InputObject
+        }
         'strip_newlines' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
             return $text.Replace('\n', '').Replace('\r', '')
+        }
+        'strip_html' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return ([System.Text.RegularExpressions.Regex]::Replace($text, '<[^>]+>', '')).Trim()
+        }
+        'url_encode' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return [System.Uri]::EscapeDataString($text)
+        }
+        'url_decode' {
+            $text = ConvertTo-LiquidOutputString -Value $InputObject
+            return [System.Uri]::UnescapeDataString($text.Replace('+', '%20'))
         }
         'truncate' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
@@ -2698,3 +2743,5 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+

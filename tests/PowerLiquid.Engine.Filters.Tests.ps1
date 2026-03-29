@@ -119,10 +119,44 @@ Describe 'PowerLiquid filter behavior' {
         (Invoke-LiquidTemplate -Template '{{ "a,b,c" | split: "," | reverse | join: "," }}' -Context @{}).Trim() | Should -Be 'c,b,a'
     }
 
+    It 'supports slice for strings with a start index' {
+        (Invoke-LiquidTemplate -Template '{{ "PowerLiquid" | slice: 5 }}' -Context @{}).Trim() | Should -Be 'L'
+    }
+
+    It 'supports slice for strings with start and length' {
+        (Invoke-LiquidTemplate -Template '{{ "PowerLiquid" | slice: 5, 3 }}' -Context @{}).Trim() | Should -Be 'Liq'
+    }
+
+    It 'supports slice for strings with a negative start index' {
+        (Invoke-LiquidTemplate -Template '{{ "PowerLiquid" | slice: -3, 2 }}' -Context @{}).Trim() | Should -Be 'ui'
+    }
+
+    It 'supports slice for arrays with a start index' {
+        (Invoke-LiquidTemplate -Template '{{ "a,b,c,d" | split: "," | slice: 1 | join: "," }}' -Context @{}).Trim() | Should -Be 'b'
+    }
+
+    It 'supports slice for arrays with start and length' {
+        (Invoke-LiquidTemplate -Template '{{ "a,b,c,d" | split: "," | slice: 1, 2 | join: "," }}' -Context @{}).Trim() | Should -Be 'b,c'
+    }
+
+    It 'supports slice for arrays with a negative start index' {
+        (Invoke-LiquidTemplate -Template '{{ "a,b,c,d" | split: "," | slice: -2, 2 | join: "," }}' -Context @{}).Trim() | Should -Be 'c,d'
+    }
     It 'supports strip_newlines' {
         (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | strip_newlines }}' -Context @{}).Trim() | Should -Be 'line1line2'
     }
 
+    It 'supports strip_html' {
+        (Invoke-LiquidTemplate -Template '{{ "<p>Hello <strong>world</strong></p>" | strip_html }}' -Context @{}).Trim() | Should -Be 'Hello world'
+    }
+
+    It 'supports url_encode' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world/path" | url_encode }}' -Context @{}).Trim() | Should -Be 'hello%20world%2Fpath'
+    }
+
+    It 'supports url_decode' {
+        (Invoke-LiquidTemplate -Template '{{ "hello%20world%2Fpath" | url_decode }}' -Context @{}).Trim() | Should -Be 'hello world/path'
+    }
     It 'supports truncate' {
         (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 5 }}' -Context @{}).Trim() | Should -Be 'he...'
     }
@@ -165,3 +199,5 @@ Describe 'PowerLiquid filter behavior' {
     }
 
 }
+
+
