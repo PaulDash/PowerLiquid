@@ -1,6 +1,6 @@
-# TODO
+# Future improvements
 
-## Improvements
+## Features
 
 ### Parser and AST
 
@@ -9,8 +9,8 @@
 
 ### Compatibility
 
-- add more Liquid tags such as `render`, `tablerow`, `case`, `cycle`, `increment`, and `decrement`
-- add more standard filters and stricter compatibility behavior
+- add more Liquid tags
+- add more Liquid filters and stricter compatibility behavior
 - support whitespace-control edge cases more completely
 
 ### Host Integration
@@ -23,9 +23,8 @@
 
 - add parse diagnostics with structured error records
 - add formatter / linter support
-- add a full standalone test suite with compatibility fixtures
 
-### Performance
+## Performance
 
 - add template caching
 - add precompiled template support
