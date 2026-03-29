@@ -458,6 +458,99 @@ function Apply-LiquidWhitespaceControl {
     return ,$Tokens.ToArray()
 }
 
+function ConvertTo-LiquidMultilineTagToken {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RawMarkup,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RawToken,
+
+        [Parameter(Mandatory = $true)]
+        [int]$ContentStartIndex,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartLine,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartColumn,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$TrimLeft,
+
+        [Parameter(Mandatory = $true)]
+        [bool]$TrimRight
+    )
+
+    $trimmedMarkup = $RawMarkup.TrimStart()
+    if ($trimmedMarkup -notmatch '^liquid(?:\s|$)') {
+        return @()
+    }
+
+    $lineTokens = New-Object System.Collections.ArrayList
+    $rawLines = $RawMarkup -split '\r?\n', 0
+    if ($rawLines.Count -eq 0) {
+        return @()
+    }
+
+    $firstLine = [string]$rawLines[0]
+    $firstLinePrefixLength = $firstLine.Length - $firstLine.TrimStart().Length
+    $firstLineBody = $firstLine.TrimStart()
+    $firstLineRemainder = if ($firstLineBody.Length -gt 6) { $firstLineBody.Substring(6).Trim() } else { '' }
+
+    $currentLine = $StartLine
+    foreach ($lineIndex in 0..($rawLines.Count - 1)) {
+        $rawLine = [string]$rawLines[$lineIndex]
+        $lineText = if ($lineIndex -eq 0) { $firstLineRemainder } else { $rawLine.Trim() }
+        if (-not [string]::IsNullOrWhiteSpace($lineText)) {
+            $lineStartColumn = if ($lineIndex -eq 0) {
+                $StartColumn + $firstLinePrefixLength + 6
+            } else {
+                $rawLine.Length - $rawLine.TrimStart().Length + 1
+            }
+
+            $lineStartIndex = $ContentStartIndex
+            if ($lineIndex -eq 0) {
+                $lineStartIndex += $firstLinePrefixLength + 6
+            } else {
+                $priorLength = 0
+                for ($priorIndex = 0; $priorIndex -lt $lineIndex; $priorIndex++) {
+                    $priorLength += ([string]$rawLines[$priorIndex]).Length
+                    $priorLength += 1
+                }
+                $lineStartIndex += $priorLength + ($rawLine.Length - $rawLine.TrimStart().Length)
+            }
+
+            $lineEndPosition = getLiquidAdvancedTextPosition -Text $lineText -StartLine $currentLine -StartColumn $lineStartColumn
+            [void]$lineTokens.Add([pscustomobject]@{
+                Type        = 'Tag'
+                Raw         = $lineText
+                Value       = $lineText
+                TrimLeft    = ($lineIndex -eq 0) -and $TrimLeft
+                TrimRight   = $false
+                StartIndex  = $lineStartIndex
+                StartLine   = $currentLine
+                StartColumn = $lineStartColumn
+                EndIndex    = $lineStartIndex + $lineText.Length
+                EndLine     = $lineEndPosition.Line
+                EndColumn   = $lineEndPosition.Column
+                Location    = (newLiquidSourceLocation -StartIndex $lineStartIndex -StartLine $currentLine -StartColumn $lineStartColumn -EndIndex ($lineStartIndex + $lineText.Length) -EndLine $lineEndPosition.Line -EndColumn $lineEndPosition.Column)
+            })
+        }
+
+        if ($lineIndex + 1 -lt $rawLines.Count) {
+            $currentLine++
+        }
+    }
+
+    if ($lineTokens.Count -gt 0) {
+        $lineTokens[$lineTokens.Count - 1].TrimRight = $TrimRight
+    }
+
+    return ,$lineTokens.ToArray()
+}
 function ConvertTo-LiquidToken {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -504,20 +597,49 @@ function ConvertTo-LiquidToken {
         $tokenValue = if ($tokenType -eq 'Output') { $match.Groups[1].Value.Trim() } else { $match.Groups[2].Value.Trim() }
         $trimLeft = $match.Value.StartsWith('{{-') -or $match.Value.StartsWith('{%-')
         $trimRight = $match.Value.EndsWith('-}}') -or $match.Value.EndsWith('-%}')
-        [void]$tokens.Add([pscustomobject]@{
-            Type        = $tokenType
-            Raw         = $match.Value
-            Value       = $tokenValue
-            TrimLeft    = $trimLeft
-            TrimRight   = $trimRight
-            StartIndex  = $match.Index
-            StartLine   = $line
-            StartColumn = $column
-            EndIndex    = $match.Index + $match.Length
-            EndLine     = $matchEnd.Line
-            EndColumn   = $matchEnd.Column
-            Location    = (newLiquidSourceLocation -StartIndex $match.Index -StartLine $line -StartColumn $column -EndIndex ($match.Index + $match.Length) -EndLine $matchEnd.Line -EndColumn $matchEnd.Column)
-        })
+        if ($tokenType -eq 'Tag') {
+            $contentStartColumn = $column + 2
+            if ($match.Value.StartsWith('{%-')) {
+                $contentStartColumn++
+            }
+
+            $liquidTagTokens = @(ConvertTo-LiquidMultilineTagToken -RawMarkup $match.Groups[2].Value -RawToken $match.Value -ContentStartIndex $match.Groups[2].Index -StartLine $line -StartColumn $contentStartColumn -TrimLeft $trimLeft -TrimRight $trimRight)
+            if ($liquidTagTokens.Count -gt 0) {
+                foreach ($liquidTagToken in $liquidTagTokens) {
+                    [void]$tokens.Add($liquidTagToken)
+                }
+            } else {
+                [void]$tokens.Add([pscustomobject]@{
+                    Type        = $tokenType
+                    Raw         = $match.Value
+                    Value       = $tokenValue
+                    TrimLeft    = $trimLeft
+                    TrimRight   = $trimRight
+                    StartIndex  = $match.Index
+                    StartLine   = $line
+                    StartColumn = $column
+                    EndIndex    = $match.Index + $match.Length
+                    EndLine     = $matchEnd.Line
+                    EndColumn   = $matchEnd.Column
+                    Location    = (newLiquidSourceLocation -StartIndex $match.Index -StartLine $line -StartColumn $column -EndIndex ($match.Index + $match.Length) -EndLine $matchEnd.Line -EndColumn $matchEnd.Column)
+                })
+            }
+        } else {
+            [void]$tokens.Add([pscustomobject]@{
+                Type        = $tokenType
+                Raw         = $match.Value
+                Value       = $tokenValue
+                TrimLeft    = $trimLeft
+                TrimRight   = $trimRight
+                StartIndex  = $match.Index
+                StartLine   = $line
+                StartColumn = $column
+                EndIndex    = $match.Index + $match.Length
+                EndLine     = $matchEnd.Line
+                EndColumn   = $matchEnd.Column
+                Location    = (newLiquidSourceLocation -StartIndex $match.Index -StartLine $line -StartColumn $column -EndIndex ($match.Index + $match.Length) -EndLine $matchEnd.Line -EndColumn $matchEnd.Column)
+            })
+        }
 
         $position = $match.Index + $match.Length
         $line = $matchEnd.Line
@@ -1123,6 +1245,10 @@ function parseLiquidNode {
                     Type       = 'Echo'
                     Expression = $tagParts.Markup
                 })
+                $Index.Value++
+            }
+            '#' {
+                # Inline comment lines can appear inside liquid tags and are ignored one line at a time.
                 $Index.Value++
             }
             'render' {
@@ -3240,3 +3366,7 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+
+
+

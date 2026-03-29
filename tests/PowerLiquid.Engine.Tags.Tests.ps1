@@ -55,6 +55,29 @@ Describe 'PowerLiquid advanced engine tags' {
         { Invoke-LiquidTemplate -Template '{% break %}' -Context @{} } | Should -Throw -ExpectedMessage '*break tag can only be used inside for or tablerow loops*'
     }
 
+
+    It 'supports the liquid tag with multiline logic and echo output' {
+        $template = "{% liquid`nassign kind = page.kind`nif kind == 'note'`n  echo kind | upcase`nelse`n  echo 'other'`nendif %}"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{ page = @{ kind = 'note' } }
+        $result | Should -Be 'NOTE'
+    }
+
+    It 'supports inline comments inside liquid tags' {
+        $template = "{% liquid`n# this line is ignored`nassign topic = 'Learning about comments!'`necho topic`n%}"
+        $result = Invoke-LiquidTemplate -Template $template -Context @{}
+        $result | Should -Be 'Learning about comments!'
+    }
+
+    It 'requires block tags opened inside liquid to close inside the same tag' {
+        { Invoke-LiquidTemplate -Template "{% liquid`nif true`n  echo 'x'`n%}" -Context @{} } | Should -Throw -ExpectedMessage '*missing endif*'
+    }
+
+    It 'expands liquid tags into nested tokens and AST nodes' {
+        $ast = ConvertTo-LiquidAst -Template "{% liquid`nassign topic = 'PowerLiquid'`necho topic`n%}" -IncludeTokens
+        ($ast.Tokens | Where-Object { $_.Type -eq 'Tag' }).Count | Should -Be 2
+        $ast.Nodes[0].Type | Should -Be 'Assign'
+        $ast.Nodes[1].Type | Should -Be 'Echo'
+    }
     It 'parses AST nodes for case, echo, render, and loop-control tags' {
         $template = "{% case page.kind %}{% when 'note' %}x{% endcase %}{% echo page.kind | upcase %}{% cycle 'odd', 'even' %}{% increment count %}{% decrement count %}"
         $ast = ConvertTo-LiquidAst -Template $template -Dialect JekyllLiquid
@@ -65,6 +88,7 @@ Describe 'PowerLiquid advanced engine tags' {
         $ast.Nodes[4].Type | Should -Be 'Decrement'
     }
 }
+
 
 
 
