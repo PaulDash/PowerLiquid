@@ -297,11 +297,12 @@ function Split-LiquidDelimitedString {
         [char]$Delimiter
     )
 
-    # Liquid expressions reuse a few delimiter-separated forms, but delimiters inside quotes should be ignored.
+    # Liquid expressions reuse a few delimiter-separated forms, but delimiters inside quotes or parentheses should be ignored.
     $segments = New-Object System.Collections.ArrayList
     $builder = New-Object System.Text.StringBuilder
     $inSingleQuote = $false
     $inDoubleQuote = $false
+    $parenDepth = 0
 
     foreach ($character in $InputText.ToCharArray()) {
         switch ($character) {
@@ -319,8 +320,22 @@ function Split-LiquidDelimitedString {
                 [void]$builder.Append($character)
                 continue
             }
+            '(' {
+                if (-not $inSingleQuote -and -not $inDoubleQuote) {
+                    $parenDepth++
+                }
+                [void]$builder.Append($character)
+                continue
+            }
+            ')' {
+                if (-not $inSingleQuote -and -not $inDoubleQuote) {
+                    $parenDepth--
+                }
+                [void]$builder.Append($character)
+                continue
+            }
             default {
-                if (($character -eq $Delimiter) -and -not $inSingleQuote -and -not $inDoubleQuote) {
+                if (($character -eq $Delimiter) -and -not $inSingleQuote -and -not $inDoubleQuote -and $parenDepth -eq 0) {
                     [void]$segments.Add($builder.ToString())
                     [void]$builder.Clear()
                     continue
@@ -1460,10 +1475,6 @@ function ConvertTo-LiquidNumericValue {
         $Value
     )
 
-    if ($null -eq $Value) {
-        return 0
-    }
-
     if ($Value -is [int] -or $Value -is [long] -or $Value -is [double] -or $Value -is [single] -or $Value -is [decimal]) {
         return [double]$Value
     }
@@ -1474,6 +1485,10 @@ function ConvertTo-LiquidNumericValue {
         if ([double]::TryParse($trimmed, [System.Globalization.NumberStyles]::Any, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$number)) {
             return $number
         }
+    }
+
+    if ($null -eq $Value) {
+        return 0
     }
 
     throw "Liquid value '$Value' is not a number."
@@ -1693,18 +1708,19 @@ function Invoke-LiquidFilter {
             return [System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ToTitleCase($text.ToLowerInvariant())
         }
         'concat' {
-            if ($Arguments.Count -lt 1) { throw "The 'concat' filter requires at least 1 argument: array to concatenate" }
-            if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
-                $result = New-Object System.Collections.ArrayList
-                [void]$result.AddRange(@($InputObject))
-                for ($i = 0; $i -lt $Arguments.Count; $i++) {
-                    if ($Arguments[$i] -is [System.Collections.IEnumerable] -and $Arguments[$i] -isnot [string]) {
-                        [void]$result.AddRange(@($Arguments[$i]))
-                    }
-                }
-                return ,@($result.ToArray())
+            if ($Arguments.Count -ne 1) { throw "The 'concat' filter requires 1 argument: array to concatenate" }
+            if ($InputObject -isnot [System.Collections.IEnumerable] -or $InputObject -is [string]) {
+                throw "The 'concat' filter requires an array input."
             }
-            return $InputObject
+
+            if ($Arguments[0] -isnot [System.Collections.IEnumerable] -or $Arguments[0] -is [string]) {
+                throw "The 'concat' filter requires an array argument."
+            }
+
+            $result = New-Object System.Collections.ArrayList
+            [void]$result.AddRange(@($InputObject))
+            [void]$result.AddRange(@($Arguments[0]))
+            return ,@($result.ToArray())
         }
         'newline_to_br' {
             $text = ConvertTo-LiquidOutputString -Value $InputObject
@@ -1791,8 +1807,6 @@ function Invoke-LiquidFilter {
                 $suffix = ConvertTo-LiquidOutputString -Value $Arguments[1]
             }
 
-            Write-Host "DEBUG truncate: text=[$text], length=$length, suffix=[$suffix], text.Length=$($text.Length)"
-
             if ($length -le 0) {
                 return ''
             }
@@ -1809,8 +1823,6 @@ function Invoke-LiquidFilter {
             if ($truncatedLength -lt 0) {
                 $truncatedLength = 0
             }
-
-            Write-Host "DEBUG truncate: truncatedLength=$truncatedLength"
 
             return $text.Substring(0, $truncatedLength) + $suffix
         }
@@ -1969,16 +1981,14 @@ function Resolve-LiquidExpression {
         $arguments = @()
 
         if ($filterParts.Count -gt 1) {
-            $argumentExpressions = @(
-                Split-LiquidDelimitedString -InputText ([string]$filterParts[1]) -Delimiter ',' |
-                    ForEach-Object { [string]$_ }
-            )
-            Write-Host "DEBUG Resolve-LiquidExpression filterName=$filterName argumentExpressions=[$(($argumentExpressions -join '|'))]"
-            $arguments = @(
-                $argumentExpressions |
-                    ForEach-Object { Resolve-LiquidExpression -Expression $_ -Runtime $Runtime }
-            )
-            Write-Host "DEBUG Resolve-LiquidExpression resolvedArguments=[$(($arguments -join '|'))]"
+            $argumentExpressions = Split-LiquidDelimitedString -InputText ([string]$filterParts[1]) -Delimiter ','
+            $argumentList = New-Object System.Collections.ArrayList
+            foreach ($argExpr in $argumentExpressions) {
+                $resolvedArg = Resolve-LiquidExpression -Expression $argExpr.Trim() -Runtime $Runtime
+                [void]$argumentList.Add($resolvedArg)
+            }
+
+            $arguments = @($argumentList.ToArray())
         }
 
         $value = Invoke-LiquidFilter -Name $filterName -InputObject $value -Arguments $arguments -Runtime $Runtime
@@ -2688,3 +2698,5 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
+

@@ -1,4 +1,4 @@
-Describe 'PowerLiquid numeric filter behavior' {
+Describe 'PowerLiquid filter behavior' {
     BeforeAll {
         $projectRoot = Split-Path -Parent $PSScriptRoot
         $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'PowerLiquid.psd1'
@@ -66,9 +66,23 @@ Describe 'PowerLiquid numeric filter behavior' {
     }
 
     It 'supports concat with arrays' {
-        (Invoke-LiquidTemplate -Template '{{ "a,b" | split: "," | concat: ("c" | split: ",") | join: "," }}' -Context @{}).Trim() | Should -Be 'a,b,c'
+        # Test concat by appending one array to another using context variables
+        # concat: [1, 2] + [3, 4] = [1, 2, 3, 4]
+        $context = @{
+            array1 = @(1, 2)
+            array2 = @(3, 4)
+        }
+        (Invoke-LiquidTemplate -Template '{{ array1 | concat: array2 | join: "," }}' -Context $context).Trim() | Should -Be '1,2,3,4'
     }
 
+    It 'supports concat with an assigned split array argument in standard Liquid syntax' {
+        $context = @{
+            array1 = @('a', 'b')
+        }
+
+        $template = '{% assign array2 = "c,d" | split: "," %}{{ array1 | concat: array2 | join: "," }}'
+        (Invoke-LiquidTemplate -Template $template -Context $context).Trim() | Should -Be 'a,b,c,d'
+    }
     It 'supports newline_to_br' {
         (Invoke-LiquidTemplate -Template '{{ "line1\nline2" | newline_to_br }}' -Context @{}).Trim() | Should -Be 'line1<br>line2'
     }
@@ -117,6 +131,10 @@ Describe 'PowerLiquid numeric filter behavior' {
         (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 3, "!" }}' -Context @{}).Trim() | Should -Be 'he!'
     }
 
+    It 'supports truncate with blank suffix' {
+        (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 5, "" }}' -Context @{}).Trim() | Should -Be 'hello'
+    }
+
     It 'supports truncate with length longer than string' {
         (Invoke-LiquidTemplate -Template '{{ "hello world" | truncate: 20 }}' -Context @{}).Trim() | Should -Be 'hello world'
     }
@@ -145,4 +163,6 @@ Describe 'PowerLiquid numeric filter behavior' {
         $date = [datetime]::Now.ToString('yyyy-MM-dd')
         $result.Trim() | Should -Be $date
     }
+
 }
+
