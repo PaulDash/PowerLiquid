@@ -1,6 +1,6 @@
 ﻿@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.8.5'
+    ModuleVersion     = '0.8.6'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
@@ -23,6 +23,7 @@
     AliasesToExport   = @()
 
     FileList = @(
+        'README.md'
         'LICENSE'
         'PowerLiquid.psd1'
         'PowerLiquid.psm1'
@@ -43,7 +44,22 @@
             ProjectURI   = 'https://github.com/PaulDash/PowerLiquid'
             LicenseURI   = 'https://github.com/PaulDash/PowerLiquid/blob/main/LICENSE?raw=true'
             IconURI      = 'https://github.com/PaulDash/PowerLiquid/blob/main/res/Icon_85x85.png?raw=true'
-            ReleaseNotes = 'Updated manifest file metadata to reflect the publishable module structure.'
+            ReleaseNotes = 'PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rendering Liquid templates.
+
+            Goals:
+            - reusable in any host application
+            - explicit dialect support
+            - host-controlled extensibility
+
+            # 0.8.6
+            Features:
+            - Liquid template tokenization
+            - AST generation through ConvertTo-LiquidAst
+            - object output with filter pipelines
+            - control-flow tags such as if/elsif/else/unless/for, assign and capture, comment and raw blocks
+            - custom tags and filters through an extension registry with trusted type registration
+            - separate Liquid and JekyllLiquid dialects
+            '
         }
     }
 }
