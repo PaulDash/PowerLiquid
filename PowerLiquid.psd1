@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.8.7'
+    ModuleVersion     = '0.8.9'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
@@ -51,10 +51,10 @@
             - explicit dialect support
             - host-controlled extensibility
 
-            # 0.8.7
+            # 0.8.9
             Features:
             - Liquid template tokenization
-            - AST generation through ConvertTo-LiquidAst
+            - AST generation through ConvertTo-LiquidAst with source locations on tokens and AST nodes, consolidated under ConvertTo-LiquidAst help
             - object output with filter pipelines
             - control-flow tags such as if/elsif/else/unless/for, assign and capture, comment and raw blocks
             - custom tags and filters through an extension registry with trusted type registration
@@ -64,3 +64,5 @@
         }
     }
 }
+
+

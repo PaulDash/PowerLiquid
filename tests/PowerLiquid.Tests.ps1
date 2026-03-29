@@ -32,6 +32,25 @@ Describe 'PowerLiquid module' {
         $ast.Tokens.Count | Should -BeGreaterThan 0
     }
 
+    It 'preserves line and column locations on AST nodes and tokens' {
+        $template = [string]::Join([Environment]::NewLine, @(
+            '{% if page.title %}',
+            '  {{ page.title }}',
+            '{% endif %}'
+        ))
+
+        $ast = ConvertTo-LiquidAst -Template $template -Dialect JekyllLiquid -IncludeTokens
+
+        $outputToken = $ast.Tokens | Where-Object { $_.Type -eq 'Output' } | Select-Object -First 1
+
+        $ast.Nodes[0].Location.StartLine | Should -Be 1
+        $ast.Nodes[0].Location.StartColumn | Should -Be 1
+        $ast.Nodes[0].Location.EndLine | Should -Be 3
+        $ast.Tokens[0].Location.StartLine | Should -Be 1
+        $outputToken.Location.StartLine | Should -Be 2
+        $outputToken.Location.StartColumn | Should -Be 3
+    }
+
     It 'renders a basic object expression' {
         $result = Invoke-LiquidTemplate -Template 'Hello {{ user.name }}' -Context @{
             user = @{
@@ -116,4 +135,6 @@ Describe 'PowerLiquid module' {
         } | Should -Throw -ExpectedMessage '*include_relative*outside the allowed relative include root*'
     }
 }
+
+
 

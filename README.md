@@ -12,29 +12,31 @@ PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rende
 ## Current Features
 
 - Liquid template tokenization
-- AST generation through `ConvertTo-LiquidAst`
 - object output with filter pipelines
-- control-flow tags such as `if`, `elsif`, `else`, `unless`, and `for`
-- `assign` and `capture`
-- `comment` and `raw`
-- `include` and `include_relative` support in the `JekyllLiquid` dialect
 - custom tags and filters through an extension registry
 - separate `Liquid` and `JekyllLiquid` dialects
-- a practical starter set of built-in filters
+- AST generation through `ConvertTo-LiquidAst` with token and node diagnostics
+
+### Available commands
+
+- `ConvertTo-LiquidAst`
+- `Invoke-LiquidTemplate`
+- `New-LiquidExtensionRegistry`
+- `Register-LiquidTag`
+- `Register-LiquidFilter`
+- `Register-LiquidTrustedType`
 
 ## Quick Example
 
 ```powershell
-Import-Module .\PowerLiquid.psd1
-
-$result = Invoke-LiquidTemplate -Template 'Hello {{ user.name | upcase }}' -Context @{
+Invoke-LiquidTemplate -Template 'Hello {{ user.name | upcase }}' -Context @{
     user = @{
         name = 'Paul'
     }
 }
-
-$result
 ```
+
+Should produce `Hello PAUL`
 
 ## Dialects
 
@@ -103,8 +105,6 @@ Register-LiquidTrustedType -Registry $registry -TypeName HydeDocument
 ### Example: Register a Custom Tag
 
 ```powershell
-Import-Module .\PowerLiquid.psd1
-
 $registry = New-LiquidExtensionRegistry
 
 Register-LiquidTag -Registry $registry -Dialect JekyllLiquid -Name hello -Handler {
@@ -118,8 +118,6 @@ Invoke-LiquidTemplate -Template '{% hello %}' -Context @{} -Dialect JekyllLiquid
 ### Example: Register a Custom Filter
 
 ```powershell
-Import-Module .\PowerLiquid.psd1
-
 $registry = New-LiquidExtensionRegistry
 
 Register-LiquidFilter -Registry $registry -Dialect Liquid -Name shout -Handler {
@@ -135,8 +133,6 @@ Invoke-LiquidTemplate -Template '{{ "hello" | shout }}' -Context @{} -Registry $
 PowerLiquid also exposes a parse-first API:
 
 ```powershell
-Import-Module .\PowerLiquid.psd1
-
 $ast = ConvertTo-LiquidAst -Template '{% if page.title %}{{ page.title }}{% endif %}' -Dialect JekyllLiquid
 $ast.Nodes
 ```
@@ -145,31 +141,9 @@ The AST root is returned as a `PowerLiquid.Ast` object with:
 
 - `Dialect`
 - `Nodes`
-- optional `Tokens` when `-IncludeTokens` is used
+- optional Tokens when -IncludeTokens is used
 
-Detailed AST documentation lives in [docs/AstApi.md](docs/AstApi.md).
-
-## Public API
-
-- `ConvertTo-LiquidAst`
-- `Invoke-LiquidTemplate`
-- `New-LiquidExtensionRegistry`
-- `Register-LiquidTag`
-- `Register-LiquidFilter`
-- `Register-LiquidTrustedType`
-
-## Repository Layout
-
-```text
-PowerLiquid/
-  PowerLiquid.psd1
-  PowerLiquid.psm1
-  Public/
-  Private/
-    PowerLiquid.Engine.ps1
-  docs/
-  tests/
-```
+Each token and AST node now carries a Location object with StartLine, StartColumn, EndLine, EndColumn, StartIndex, and EndIndex for editor integrations and diagnostics.
 
 ## Contributing
 
@@ -201,4 +175,3 @@ We welcome contributions! Please follow these guidelines:
 
 - Use GitHub issues for bugs and feature requests.
 - Include template examples, expected vs. actual output, and PowerShell version.
-

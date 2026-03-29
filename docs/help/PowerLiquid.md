@@ -18,7 +18,7 @@ and a host-controlled extension model for custom tags, filters, and trusted type
 
 ### [ConvertTo-LiquidAst](ConvertTo-LiquidAst.md)
 
-Parses a Liquid template into a structured abstract syntax tree without rendering it.
+Parses a Liquid template into a structured abstract syntax tree without rendering it. This cmdlet page is the authoritative AST API reference.
 
 ### [Invoke-LiquidTemplate](Invoke-LiquidTemplate.md)
 
@@ -39,3 +39,4 @@ Registers a custom Liquid tag handler in an extension registry for a selected di
 ### [Register-LiquidTrustedType](Register-LiquidTrustedType.md)
 
 Allows a host to explicitly expose a trusted CLR type's public properties to templates.
+

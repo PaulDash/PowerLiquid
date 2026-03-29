@@ -21,6 +21,8 @@ ConvertTo-LiquidAst [-Template] <String> [[-Dialect] <String>] [[-Registry] <Has
 ## DESCRIPTION
 
 Tokenizes and parses a Liquid template into a structured AST object for analysis or tooling.
+This is the primary PowerLiquid entry point for parse-only inspection of Liquid syntax.
+Tokens and AST nodes preserve line, column, and character-index ranges for diagnostics.
 Supports multiple dialects and extension registries.
 
 ## EXAMPLES
@@ -89,7 +91,7 @@ Accept wildcard characters: False
 
 ### -IncludeTokens
 
-Include the raw token stream in the AST output.
+Include the raw token stream in the AST output. Tokens also include source locations for diagnostics.
 
 ```yaml
 Type: SwitchParameter
@@ -112,3 +114,35 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ### PowerLiquid.Ast
+
+## NOTES
+
+AST root:
+- `Dialect`
+- `Nodes`
+- `Tokens` when `-IncludeTokens` is specified
+
+Location object:
+- `StartLine`
+- `StartColumn`
+- `EndLine`
+- `EndColumn`
+- `StartIndex`
+- `EndIndex`
+
+Common node shapes:
+- `Text`: `Type`, `Value`, `Location`
+- `Output`: `Type`, `Expression`, `Location`
+- `Assign`: `Type`, `Name`, `Expression`, `Location`
+- `Capture`: `Type`, `Name`, `Nodes`, `Location`
+- `If`: `Type`, `Branches`, `Else`, `Location`
+- `Unless`: `Type`, `Condition`, `Nodes`, `Else`, `Location`
+- `For`: `Type`, `VariableName`, `CollectionExpression`, `Nodes`, `Else`, `Location`
+- `Include`: `Type`, `TargetExpression`, `Parameters`, `Location`
+- `IncludeRelative`: `Type`, `TargetExpression`, `Parameters`, `Location`
+- `CustomTag`: `Type`, `Name`, `Markup`, `Location`
+
+Security:
+- `ConvertTo-LiquidAst` is parse-only.
+- It does not evaluate context data, includes, filters, or custom tag handlers.
+- Prefer it for editor tooling, diagnostics, linting, and safe inspection of untrusted templates.

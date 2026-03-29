@@ -14,7 +14,7 @@ break
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Generate PlatyPS markdown help source for the module, its public commands, and the AST API About topic.
+# Generate PlatyPS markdown help source for the module and its public commands.
 Import-Module PlatyPS -MinimumVersion 0.14.2 -ErrorAction Stop
 
 $resolvedManifestPath = [System.IO.Path]::GetFullPath($ModuleManifestPath)
@@ -33,7 +33,6 @@ Write-Verbose "Importing module from '$resolvedManifestPath'."
 Import-Module $resolvedManifestPath -Force -ErrorAction Stop
 
 $moduleName = (Test-ModuleManifest -Path $resolvedManifestPath).Name
-$aboutTopicPath = Join-Path -Path $resolvedHelpSourcePath -ChildPath 'about_PowerLiquid_Ast.help.md'
 
 # When -Force is used, clear previously generated markdown so the regenerated help matches the current code comments.
 if ($Force) {
@@ -47,3 +46,5 @@ New-MarkdownHelp -Module $moduleName -OutputFolder $resolvedHelpSourcePath -With
 break
 
 New-ExternalHelp -Path .\docs\help\ -OutputPath .\en-US\ -Verbose -ShowProgress -Force
+
+

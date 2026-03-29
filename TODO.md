@@ -6,7 +6,6 @@
 
 - expose a parse-only API in addition to render
 - expose an AST / token tree for tooling use
-- preserve line and column information for diagnostics
 
 ### Compatibility
 

@@ -335,6 +335,84 @@ function Split-LiquidDelimitedString {
     return ,$segments.ToArray()
 }
 
+function getLiquidAdvancedTextPosition {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Text,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartLine,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartColumn
+    )
+
+    # Walk a text span once so tokenization can stamp line and column ranges without re-scanning the full template.
+    $line = $StartLine
+    $column = $StartColumn
+    foreach ($character in $Text.ToCharArray()) {
+        if ($character -eq "`n") {
+            $line++
+            $column = 1
+            continue
+        }
+
+        $column++
+    }
+
+    return @{
+        Line   = $line
+        Column = $column
+    }
+}
+
+function newLiquidSourceLocation {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$StartIndex,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartLine,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartColumn,
+
+        [Parameter(Mandatory = $true)]
+        [int]$EndIndex,
+
+        [Parameter(Mandatory = $true)]
+        [int]$EndLine,
+
+        [Parameter(Mandatory = $true)]
+        [int]$EndColumn
+    )
+
+    # Keep source locations in one consistent shape so tokens and AST nodes report the same diagnostics contract.
+    return @{
+        StartIndex  = $StartIndex
+        StartLine   = $StartLine
+        StartColumn = $StartColumn
+        EndIndex    = $EndIndex
+        EndLine     = $EndLine
+        EndColumn   = $EndColumn
+    }
+}
+
+function getLiquidTokenLocation {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        $Token
+    )
+
+    return newLiquidSourceLocation -StartIndex $Token.StartIndex -StartLine $Token.StartLine -StartColumn $Token.StartColumn -EndIndex $Token.EndIndex -EndLine $Token.EndLine -EndColumn $Token.EndColumn
+}
 function ConvertTo-LiquidToken {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -344,7 +422,7 @@ function ConvertTo-LiquidToken {
         [string]$Template
     )
 
-    # Tokenize the template into plain text, output blocks, and tag blocks.
+    # Tokenize the template into plain text, output blocks, and tag blocks while preserving exact source positions.
     $tokens = New-Object System.Collections.ArrayList
     $pattern = '\{\{[-]?(.*?)[-]?\}\}|\{%-?(.*?)-?%\}'
     $regexMatches = [System.Text.RegularExpressions.Regex]::Matches(
@@ -354,45 +432,68 @@ function ConvertTo-LiquidToken {
     )
 
     $position = 0
+    $line = 1
+    $column = 1
     foreach ($match in $regexMatches) {
         if ($match.Index -gt $position) {
             $text = $Template.Substring($position, $match.Index - $position)
+            $textEnd = getLiquidAdvancedTextPosition -Text $text -StartLine $line -StartColumn $column
             [void]$tokens.Add([pscustomobject]@{
-                Type  = 'Text'
-                Raw   = $text
-                Value = $text
+                Type        = 'Text'
+                Raw         = $text
+                Value       = $text
+                StartIndex  = $position
+                StartLine   = $line
+                StartColumn = $column
+                EndIndex    = $match.Index
+                EndLine     = $textEnd.Line
+                EndColumn   = $textEnd.Column
+                Location    = (newLiquidSourceLocation -StartIndex $position -StartLine $line -StartColumn $column -EndIndex $match.Index -EndLine $textEnd.Line -EndColumn $textEnd.Column)
             })
+            $line = $textEnd.Line
+            $column = $textEnd.Column
         }
 
-        if ($match.Value.StartsWith('{{')) {
-            [void]$tokens.Add([pscustomobject]@{
-                Type  = 'Output'
-                Raw   = $match.Value
-                Value = $match.Groups[1].Value.Trim()
-            })
-        } else {
-            [void]$tokens.Add([pscustomobject]@{
-                Type  = 'Tag'
-                Raw   = $match.Value
-                Value = $match.Groups[2].Value.Trim()
-            })
-        }
+        $matchEnd = getLiquidAdvancedTextPosition -Text $match.Value -StartLine $line -StartColumn $column
+        $tokenType = if ($match.Value.StartsWith('{{')) { 'Output' } else { 'Tag' }
+        $tokenValue = if ($tokenType -eq 'Output') { $match.Groups[1].Value.Trim() } else { $match.Groups[2].Value.Trim() }
+        [void]$tokens.Add([pscustomobject]@{
+            Type        = $tokenType
+            Raw         = $match.Value
+            Value       = $tokenValue
+            StartIndex  = $match.Index
+            StartLine   = $line
+            StartColumn = $column
+            EndIndex    = $match.Index + $match.Length
+            EndLine     = $matchEnd.Line
+            EndColumn   = $matchEnd.Column
+            Location    = (newLiquidSourceLocation -StartIndex $match.Index -StartLine $line -StartColumn $column -EndIndex ($match.Index + $match.Length) -EndLine $matchEnd.Line -EndColumn $matchEnd.Column)
+        })
 
         $position = $match.Index + $match.Length
+        $line = $matchEnd.Line
+        $column = $matchEnd.Column
     }
 
     if ($position -lt $Template.Length) {
         $text = $Template.Substring($position)
+        $textEnd = getLiquidAdvancedTextPosition -Text $text -StartLine $line -StartColumn $column
         [void]$tokens.Add([pscustomobject]@{
-            Type  = 'Text'
-            Raw   = $text
-            Value = $text
+            Type        = 'Text'
+            Raw         = $text
+            Value       = $text
+            StartIndex  = $position
+            StartLine   = $line
+            StartColumn = $column
+            EndIndex    = $Template.Length
+            EndLine     = $textEnd.Line
+            EndColumn   = $textEnd.Column
+            Location    = (newLiquidSourceLocation -StartIndex $position -StartLine $line -StartColumn $column -EndIndex $Template.Length -EndLine $textEnd.Line -EndColumn $textEnd.Column)
         })
     }
 
     return ,$tokens.ToArray()
 }
-
 function getLiquidTagPart {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -777,6 +878,115 @@ function parseLiquidNode {
     return ,$nodes.ToArray()
 }
 
+function addLiquidAstLocation {
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Nodes,
+
+        [Parameter(Mandatory = $true)]
+        [object[]]$Tokens,
+
+        [Parameter(Mandatory = $true)]
+        [ref]$TokenIndex
+    )
+
+    # Walk the parsed node tree against the original token stream so diagnostics can report exact source locations.
+    foreach ($node in $Nodes) {
+        switch ($node.Type) {
+            'Text' {
+                $token = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
+                $TokenIndex.Value++
+            }
+            'Output' {
+                $token = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
+                $TokenIndex.Value++
+            }
+            'Assign' {
+                $token = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
+                $TokenIndex.Value++
+            }
+            'Include' {
+                $token = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
+                $TokenIndex.Value++
+            }
+            'IncludeRelative' {
+                $token = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
+                $TokenIndex.Value++
+            }
+            'CustomTag' {
+                $token = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (getLiquidTokenLocation -Token $token) -Force
+                $TokenIndex.Value++
+            }
+            'Capture' {
+                $startToken = $Tokens[$TokenIndex.Value]
+                $TokenIndex.Value++
+                addLiquidAstLocation -Nodes $node.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
+                $endToken = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
+                $TokenIndex.Value++
+            }
+            'If' {
+                $startToken = $Tokens[$TokenIndex.Value]
+                $TokenIndex.Value++
+                $branchIndex = 0
+                foreach ($branch in $node.Branches) {
+                    addLiquidAstLocation -Nodes $branch.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
+                    if ($branchIndex + 1 -lt $node.Branches.Count) {
+                        $TokenIndex.Value++
+                    }
+
+                    $branchIndex++
+                }
+
+                if ($node.Else.Count -gt 0) {
+                    $TokenIndex.Value++
+                    addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex
+                }
+
+                $endToken = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
+                $TokenIndex.Value++
+            }
+            'For' {
+                $startToken = $Tokens[$TokenIndex.Value]
+                $TokenIndex.Value++
+                addLiquidAstLocation -Nodes $node.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
+                if ($node.Else.Count -gt 0) {
+                    $TokenIndex.Value++
+                    addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex
+                }
+
+                $endToken = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
+                $TokenIndex.Value++
+            }
+            'Unless' {
+                $startToken = $Tokens[$TokenIndex.Value]
+                $TokenIndex.Value++
+                addLiquidAstLocation -Nodes $node.Nodes -Tokens $Tokens -TokenIndex $TokenIndex
+                if ($node.Else.Count -gt 0) {
+                    $TokenIndex.Value++
+                    addLiquidAstLocation -Nodes $node.Else -Tokens $Tokens -TokenIndex $TokenIndex
+                }
+
+                $endToken = $Tokens[$TokenIndex.Value]
+                Add-Member -InputObject $node -MemberType NoteProperty -Name Location -Value (newLiquidSourceLocation -StartIndex $startToken.StartIndex -StartLine $startToken.StartLine -StartColumn $startToken.StartColumn -EndIndex $endToken.EndIndex -EndLine $endToken.EndLine -EndColumn $endToken.EndColumn) -Force
+                $TokenIndex.Value++
+            }
+            default {
+                throw "AST location assignment does not support node type '$($node.Type)'."
+            }
+        }
+    }
+}
 function parseLiquidTemplate {
     [CmdletBinding()]
     [OutputType([object[]])]
@@ -791,9 +1001,11 @@ function parseLiquidTemplate {
     # Parsing starts by tokenizing the template, then building nested nodes from those tokens.
     $tokens = ConvertTo-LiquidToken -Template $Template
     $index = 0
-    return parseLiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    $nodes = parseLiquidNode -Tokens $tokens -Index ([ref]$index) -Registry $Registry
+    $tokenIndex = 0
+    addLiquidAstLocation -Nodes $nodes -Tokens $tokens -TokenIndex ([ref]$tokenIndex)
+    return $nodes
 }
-
 function Get-LiquidRuntimeValue {
     [CmdletBinding()]
     [OutputType([object])]
@@ -1988,6 +2200,7 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
+
 
 
 
