@@ -1,7 +1,7 @@
 Describe 'PowerLiquid core behavior' {
     BeforeAll {
         $projectRoot = Split-Path -Parent $PSScriptRoot
-        $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'PowerLiquid.psd1'
+        $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'src/PowerLiquid.psd1'
         Import-Module $moduleManifestPath -Force
 
         class DemoTrustedType {
@@ -82,7 +82,7 @@ Describe 'PowerLiquid core behavior' {
     }
 
     It 'creates an EmptyDrop object for the empty literal' {
-        $module = Get-Module PowerLiquid
+        $module = Import-Module $moduleManifestPath -Force -PassThru
         $emptyDrop = & $module { newLiquidEmptyDrop }
         $emptyDrop.PSTypeNames | Should -Contain 'PowerLiquid.EmptyDrop'
     }

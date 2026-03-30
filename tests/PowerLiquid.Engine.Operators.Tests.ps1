@@ -1,7 +1,7 @@
 Describe 'PowerLiquid operator behavior' {
     BeforeAll {
         $projectRoot = Split-Path -Parent $PSScriptRoot
-        $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'PowerLiquid.psd1'
+        $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'src/PowerLiquid.psd1'
         Import-Module $moduleManifestPath -Force
     }
 

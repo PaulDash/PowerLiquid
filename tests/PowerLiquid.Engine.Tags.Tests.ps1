@@ -1,7 +1,7 @@
 Describe 'PowerLiquid advanced engine tags' {
     BeforeAll {
         $projectRoot = Split-Path -Parent $PSScriptRoot
-        $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'PowerLiquid.psd1'
+        $moduleManifestPath = Join-Path -Path $projectRoot -ChildPath 'src/PowerLiquid.psd1'
         Import-Module $moduleManifestPath -Force
     }
 
@@ -100,9 +100,3 @@ Describe 'PowerLiquid advanced engine tags' {
         $ast.Nodes[4].Type | Should -Be 'Decrement'
     }
 }
-
-
-
-
-
-
