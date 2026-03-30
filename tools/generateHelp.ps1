@@ -2,7 +2,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$ModuleManifestPath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'PowerLiquid.psd1'),
+    [string]$ModuleManifestPath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'src/PowerLiquid.psd1'),
 
     [string]$MarkdownOutputPath = (Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'docs'),
 
@@ -40,10 +40,20 @@ Import-Module $resolvedManifestPath -Force -ErrorAction Stop
 
 $moduleName = (Test-ModuleManifest -Path $resolvedManifestPath).Name
 
-Write-Verbose "Generating markdown help from comment-based help into '$resolvedMarkdownOutputPath'."
-New-MarkdownHelp -Module $moduleName -OutputFolder $resolvedMarkdownOutputPath -WithModulePage -Force -ExcludeDontShow | Out-Null
+$proceed = $false
+$proceed = $Read-host -Prompt "Type [Y] if you want to regenerate markdown help from comment-based help in the module's .ps1 files. This will overwrite any existing .md files in '$resolvedMarkdownOutputPath'.`nType [N] to skip to external help generation from the existing markdown files."
 
-Read-Host -Prompt "Press Enter to continue with external help generation from the markdown files.`nThis will overwrite any existing .xml help files in '$resolvedExternalHelpOutputPath'."
+if ($proceed -match '^[Yy]$') {
+    Write-Verbose "Regenerating markdown help from comment-based help in the module's .ps1 files into '$resolvedMarkdownOutputPath'."
+    New-MarkdownHelp -Module $moduleName -OutputFolder $resolvedMarkdownOutputPath -WithModulePage -Force -ExcludeDontShow | Out-Null
+}
+else {
+    Write-Verbose "Skipping markdown help regeneration and proceeding to external help generation from the existing markdown files in '$resolvedMarkdownOutputPath'."
+}
 
-Write-Verbose "Generating external help into '$resolvedExternalHelpOutputPath'."
-New-ExternalHelp -Path $resolvedMarkdownOutputPath -OutputPath $resolvedExternalHelpOutputPath -Force -Verbose
+$proceed = $Read-host -Prompt "Type [Y] to continue with external help generation from the markdown files.`nThis will overwrite any existing .xml help files in '$resolvedExternalHelpOutputPath'."
+
+if ($proceed -match '^[Yy]$') {
+    Write-Verbose "Generating external help into '$resolvedExternalHelpOutputPath'."
+    New-ExternalHelp -Path $resolvedMarkdownOutputPath -OutputPath $resolvedExternalHelpOutputPath -Force -Verbose
+}
