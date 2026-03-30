@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module PSScriptAnalyzer -ErrorAction Stop
 
-$modulePath = Split-Path -Parent $PSScriptRoot
+$modulePath = Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'src'
 
 Write-Verbose "Running Best Practices Analyzer on PowerLiquid module..."
 
