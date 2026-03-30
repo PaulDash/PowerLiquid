@@ -1,6 +1,6 @@
-@{
+﻿@{
     RootModule        = 'PowerLiquid.psm1'
-    ModuleVersion     = '0.9.1'
+    ModuleVersion     = '1.0.0'
     GUID              = '9b6a6ea6-f0f5-4d53-b805-ecbf32f30420'
     Author            = 'Paul Dash'
     CompanyName       = 'Paul Dash'
@@ -45,17 +45,22 @@
             IconURI      = 'https://github.com/PaulDash/PowerLiquid/raw/main/res/Icon_85x85.png'
             ReleaseNotes = 'PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rendering Liquid templates.
 
-            Goals:
-            - reusable in any host application
-            - explicit dialect support
-            - host-controlled extensibility
+Goals:
+- reusable in any host application
+- explicit dialect support
+- host-controlled extensibility
 
-            # 0.9.1
-            Features:
-            - complete built-in filter surface for the current Liquid implementation, including collection, date, URL, string, and numeric filters
-            - consistent top-level error handling across the exported commands
-            - inline section comments across the module loader, public entry points, and engine sections for easier maintenance
-            '
+# 1.0.0
+
+Everything that is in Liquid documentation (at https://shopify.github.io/liquid/) - so all object types, tags, and filters - is working.
+
+- Liquid template tokenization
+- object output with the full current built-in filter set across string, numeric, date, URL, and collection helpers
+- custom tags and filters through an extension registry
+- separate `Liquid` and `JekyllLiquid` dialects
+- AST generation  with token and node diagnostics
+- consistent top-level error handling across the exported commands
+'
         }
     }
 }

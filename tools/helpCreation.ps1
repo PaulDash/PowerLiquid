@@ -41,7 +41,9 @@ Import-Module $resolvedManifestPath -Force -ErrorAction Stop
 $moduleName = (Test-ModuleManifest -Path $resolvedManifestPath).Name
 
 Write-Verbose "Generating markdown help from comment-based help into '$resolvedMarkdownOutputPath'."
-New-MarkdownHelp -Module $moduleName -OutputFolder $resolvedMarkdownOutputPath -WithModulePage -Force | Out-Null
+New-MarkdownHelp -Module $moduleName -OutputFolder $resolvedMarkdownOutputPath -WithModulePage -Force -ExcludeDontShow | Out-Null
+
+Read-Host -Prompt "Press Enter to continue with external help generation from the markdown files.`nThis will overwrite any existing .xml help files in '$resolvedExternalHelpOutputPath'."
 
 Write-Verbose "Generating external help into '$resolvedExternalHelpOutputPath'."
 New-ExternalHelp -Path $resolvedMarkdownOutputPath -OutputPath $resolvedExternalHelpOutputPath -Force -Verbose

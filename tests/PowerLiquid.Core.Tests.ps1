@@ -83,7 +83,7 @@ Describe 'PowerLiquid core behavior' {
 
     It 'creates an EmptyDrop object for the empty literal' {
         $module = Get-Module PowerLiquid
-        $emptyDrop = & $module { New-LiquidEmptyDrop }
+        $emptyDrop = & $module { newLiquidEmptyDrop }
         $emptyDrop.PSTypeNames | Should -Contain 'PowerLiquid.EmptyDrop'
     }
 
@@ -175,10 +175,3 @@ Describe 'PowerLiquid core behavior' {
         { Invoke-LiquidTemplate -Template '{% break %}' -Context @{} } | Should -Throw -ExpectedMessage 'Invoke-LiquidTemplate failed:*break tag can only be used inside for or tablerow loops*'
     }
 }
-
-
-
-
-
-
-

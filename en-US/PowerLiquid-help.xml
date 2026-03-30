@@ -62,18 +62,6 @@
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-          <maml:name>ProgressAction</maml:name>
-          <maml:description>
-            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-          </maml:description>
-          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-          <dev:type>
-            <maml:name>ActionPreference</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
-        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -125,30 +113,9 @@
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
       </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-        <maml:name>ProgressAction</maml:name>
-        <maml:description>
-          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-        </maml:description>
-        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-        <dev:type>
-          <maml:name>ActionPreference</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
-      </command:parameter>
     </command:parameters>
     <command:inputTypes />
-    <command:returnValues>
-      <command:returnValue>
-        <dev:type>
-          <maml:name>PowerLiquid.Ast</maml:name>
-        </dev:type>
-        <maml:description>
-          <maml:para></maml:para>
-        </maml:description>
-      </command:returnValue>
-    </command:returnValues>
+    <command:returnValues />
     <maml:alertSet>
       <maml:alert>
         <maml:para>AST root: - Dialect</maml:para>
@@ -206,7 +173,7 @@
       </maml:description>
     </command:details>
     <maml:description>
-      <maml:para>Parses and renders a Liquid template against a supplied context hashtable. PowerLiquid supports multiple dialects and host-provided extension registries for custom tags and filters.</maml:para>
+      <maml:para>Parses and renders a Liquid template against a supplied context hashtable. PowerLiquid supports multiple dialects and host-provided extension registries for custom tags and filters. Built-in filters include string, numeric, date, URL, and collection helpers such as sort, sort_natural, uniq, map, where, slice, strip_html, url_encode, and url_decode.</maml:para>
       <maml:para>Before rendering, the supplied context is reduced to inert Liquid-safe data structures. That means templates can read scalars, arrays, hashtables, and note-property objects, but they do not execute arbitrary PowerShell script properties or reflective object getters from untrusted input data.</maml:para>
     </maml:description>
     <command:syntax>
@@ -308,17 +275,17 @@
           </dev:type>
           <dev:defaultValue>(New-LiquidExtensionRegistry)</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-          <maml:name>ProgressAction</maml:name>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="9" aliases="none">
+          <maml:name>RenderDepth</maml:name>
           <maml:description>
-            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+            <maml:para>{{ Fill RenderDepth Description }}</maml:para>
           </maml:description>
-          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
           <dev:type>
-            <maml:name>ActionPreference</maml:name>
+            <maml:name>Int32</maml:name>
             <maml:uri />
           </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
+          <dev:defaultValue>0</dev:defaultValue>
         </command:parameter>
       </command:syntaxItem>
     </command:syntax>
@@ -419,17 +386,17 @@
         </dev:type>
         <dev:defaultValue>(New-LiquidExtensionRegistry)</dev:defaultValue>
       </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-        <maml:name>ProgressAction</maml:name>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="9" aliases="none">
+        <maml:name>RenderDepth</maml:name>
         <maml:description>
-          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
+          <maml:para>{{ Fill RenderDepth Description }}</maml:para>
         </maml:description>
-        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
         <dev:type>
-          <maml:name>ActionPreference</maml:name>
+          <maml:name>Int32</maml:name>
           <maml:uri />
         </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
+        <dev:defaultValue>0</dev:defaultValue>
       </command:parameter>
     </command:parameters>
     <command:inputTypes />
@@ -510,18 +477,6 @@
           </dev:type>
           <dev:defaultValue>False</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-          <maml:name>ProgressAction</maml:name>
-          <maml:description>
-            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-          </maml:description>
-          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-          <dev:type>
-            <maml:name>ActionPreference</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
-        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -548,18 +503,6 @@
           <maml:uri />
         </dev:type>
         <dev:defaultValue>False</dev:defaultValue>
-      </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-        <maml:name>ProgressAction</maml:name>
-        <maml:description>
-          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-        </maml:description>
-        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-        <dev:type>
-          <maml:name>ActionPreference</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
       </command:parameter>
     </command:parameters>
     <command:inputTypes />
@@ -652,18 +595,6 @@
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-          <maml:name>ProgressAction</maml:name>
-          <maml:description>
-            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-          </maml:description>
-          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-          <dev:type>
-            <maml:name>ActionPreference</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
-        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -711,18 +642,6 @@
         <command:parameterValue required="true" variableLength="false">ScriptBlock</command:parameterValue>
         <dev:type>
           <maml:name>ScriptBlock</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
-      </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-        <maml:name>ProgressAction</maml:name>
-        <maml:description>
-          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-        </maml:description>
-        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-        <dev:type>
-          <maml:name>ActionPreference</maml:name>
           <maml:uri />
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
@@ -809,18 +728,6 @@
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-          <maml:name>ProgressAction</maml:name>
-          <maml:description>
-            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-          </maml:description>
-          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-          <dev:type>
-            <maml:name>ActionPreference</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
-        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -868,18 +775,6 @@
         <command:parameterValue required="true" variableLength="false">ScriptBlock</command:parameterValue>
         <dev:type>
           <maml:name>ScriptBlock</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
-      </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-        <maml:name>ProgressAction</maml:name>
-        <maml:description>
-          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-        </maml:description>
-        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-        <dev:type>
-          <maml:name>ActionPreference</maml:name>
           <maml:uri />
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>
@@ -943,18 +838,6 @@
           </dev:type>
           <dev:defaultValue>None</dev:defaultValue>
         </command:parameter>
-        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-          <maml:name>ProgressAction</maml:name>
-          <maml:description>
-            <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-          </maml:description>
-          <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-          <dev:type>
-            <maml:name>ActionPreference</maml:name>
-            <maml:uri />
-          </dev:type>
-          <dev:defaultValue>None</dev:defaultValue>
-        </command:parameter>
       </command:syntaxItem>
     </command:syntax>
     <command:parameters>
@@ -978,18 +861,6 @@
         <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
         <dev:type>
           <maml:name>String</maml:name>
-          <maml:uri />
-        </dev:type>
-        <dev:defaultValue>None</dev:defaultValue>
-      </command:parameter>
-      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="proga">
-        <maml:name>ProgressAction</maml:name>
-        <maml:description>
-          <maml:para>{{ Fill ProgressAction Description }}</maml:para>
-        </maml:description>
-        <command:parameterValue required="true" variableLength="false">ActionPreference</command:parameterValue>
-        <dev:type>
-          <maml:name>ActionPreference</maml:name>
           <maml:uri />
         </dev:type>
         <dev:defaultValue>None</dev:defaultValue>

@@ -430,7 +430,7 @@ function getLiquidTokenLocation {
     return newLiquidSourceLocation -StartIndex $Token.StartIndex -StartLine $Token.StartLine -StartColumn $Token.StartColumn -EndIndex $Token.EndIndex -EndLine $Token.EndLine -EndColumn $Token.EndColumn
 }
 # Tokenization and markup parsing turn template text into the normalized parser input stream.
-function Apply-LiquidWhitespaceControl {
+function applyLiquidWhitespaceControl {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
@@ -464,9 +464,6 @@ function ConvertTo-LiquidMultilineTagToken {
     param(
         [Parameter(Mandatory = $true)]
         [string]$RawMarkup,
-
-        [Parameter(Mandatory = $true)]
-        [string]$RawToken,
 
         [Parameter(Mandatory = $true)]
         [int]$ContentStartIndex,
@@ -603,7 +600,7 @@ function ConvertTo-LiquidToken {
                 $contentStartColumn++
             }
 
-            $liquidTagTokens = @(ConvertTo-LiquidMultilineTagToken -RawMarkup $match.Groups[2].Value -RawToken $match.Value -ContentStartIndex $match.Groups[2].Index -StartLine $line -StartColumn $contentStartColumn -TrimLeft $trimLeft -TrimRight $trimRight)
+            $liquidTagTokens = @(ConvertTo-LiquidMultilineTagToken -RawMarkup $match.Groups[2].Value -ContentStartIndex $match.Groups[2].Index -StartLine $line -StartColumn $contentStartColumn -TrimLeft $trimLeft -TrimRight $trimRight)
             if ($liquidTagTokens.Count -gt 0) {
                 foreach ($liquidTagToken in $liquidTagTokens) {
                     [void]$tokens.Add($liquidTagToken)
@@ -663,7 +660,7 @@ function ConvertTo-LiquidToken {
         })
     }
 
-    return (Apply-LiquidWhitespaceControl -Tokens $tokens)
+    return (applyLiquidWhitespaceControl -Tokens $tokens)
 }
 function getLiquidTagPart {
     [CmdletBinding()]
@@ -1639,7 +1636,7 @@ function Resolve-LiquidVariable {
             }
 
             if (-not $resolvedMember) {
-                $value = New-LiquidEmptyDrop
+                $value = newLiquidEmptyDrop
                 break
             }
 
@@ -1663,7 +1660,7 @@ function Resolve-LiquidVariable {
     return $null
 }
 
-function New-LiquidEmptyDrop {
+function newLiquidEmptyDrop {
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param()
@@ -1765,7 +1762,7 @@ function ConvertTo-LiquidLiteralValue {
         'false' { return $false }
         'nil' { return $null }
         'null' { return $null }
-        'empty' { return (New-LiquidEmptyDrop) }
+        'empty' { return (newLiquidEmptyDrop) }
     }
 
     if ($trimmedExpression -match '^-?\d+$') {
@@ -1866,7 +1863,7 @@ function ConvertTo-LiquidNumericValue {
     }
 
     if ($null -eq $Value) {
-        return 0
+        return [double]0
     }
 
     throw "Liquid value '$Value' is not a number."
@@ -2337,7 +2334,8 @@ function Invoke-LiquidFilter {
                     try {
                         $total += ConvertTo-LiquidNumericValue -Value $item
                     } catch {
-                        # Skip non-numeric items
+                        Write-Verbose -Message ("Skipping non-numeric value in sum filter: {0}" -f (ConvertTo-LiquidOutputString -Value $item))
+                        continue
                     }
                 }
             }
@@ -2428,7 +2426,7 @@ function Invoke-LiquidFilter {
             }
 
             $propertyName = ConvertTo-LiquidOutputString -Value $Arguments[0]
-            $matches = New-Object System.Collections.ArrayList
+            $itemMatches = New-Object System.Collections.ArrayList
             foreach ($item in @($InputObject)) {
                 $propertyValue = Resolve-LiquidSortValue -Value $item -PropertyName $propertyName
                 $includeItem = $false
@@ -2440,11 +2438,11 @@ function Invoke-LiquidFilter {
                 }
 
                 if ($includeItem) {
-                    [void]$matches.Add((ConvertToLiquidSafeValue -Value $item -Registry $Runtime.Registry))
+                    [void]$itemMatches.Add((ConvertToLiquidSafeValue -Value $item -Registry $Runtime.Registry))
                 }
             }
 
-            return ,@($matches.ToArray())
+            return ,@($itemMatches.ToArray())
         }
         'xml_escape' {
             if ($dialect -ne 'JekyllLiquid') {
@@ -2958,7 +2956,7 @@ function Invoke-LiquidRender {
             }
 
             $iterationContext[$alias] = $items[$index]
-            $iterationContext['forloop'] = New-LiquidForLoopObject -Index $index -Length $items.Count -ParentLoop $null
+            $iterationContext['forloop'] = newLiquidForLoopObject -Index $index -Length $items.Count -ParentLoop $null
             [void]$builder.Append((Invoke-LiquidTemplate -Template $template -Context $iterationContext -Dialect $Runtime.Dialect -IncludeRoot $Runtime.IncludeRoot -CurrentFilePath $renderPath -RelativeIncludeRoot $Runtime.RelativeIncludeRoot -IncludeStack ($Runtime.IncludeStack + $renderPath) -Registry $Runtime.Registry -RenderDepth ($Runtime.RenderDepth + 1)))
         }
 
@@ -2995,7 +2993,7 @@ function ConvertTo-LiquidEnumerable {
     return @($Value)
 }
 
-function New-LiquidForLoopObject {
+function newLiquidForLoopObject {
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
@@ -3021,7 +3019,7 @@ function New-LiquidForLoopObject {
     }
 }
 
-function New-LiquidTablerowLoopObject {
+function newLiquidTablerowLoopObject {
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
@@ -3121,7 +3119,7 @@ function ConvertFrom-LiquidNode {
                     for ($index = 0; $index -lt $items.Count; $index++) {
                         $loopScope = @{
                             $node.VariableName = $items[$index]
-                            forloop            = New-LiquidForLoopObject -Index $index -Length $items.Count -ParentLoop $outerForLoop
+                            forloop            = newLiquidForLoopObject -Index $index -Length $items.Count -ParentLoop $outerForLoop
                         }
                         Add-LiquidScope -Runtime $Runtime -Scope $loopScope
                         try { [void]$builder.Append((ConvertFrom-LiquidNode -Nodes $node.Nodes -Runtime $Runtime)) } finally { removeLiquidScope -Runtime $Runtime }
@@ -3192,7 +3190,7 @@ function ConvertFrom-LiquidNode {
                 $Runtime.LoopDepth++
                 try {
                     for ($index = 0; $index -lt $items.Count; $index++) {
-                        $tablerowLoop = New-LiquidTablerowLoopObject -Index $index -Length $items.Count -Columns $node.Columns -ParentLoop $outerTablerowLoop
+                        $tablerowLoop = newLiquidTablerowLoopObject -Index $index -Length $items.Count -Columns $node.Columns -ParentLoop $outerTablerowLoop
                         $columnIndex = [int]$tablerowLoop.col
                         $rowIndex = [int]$tablerowLoop.row
                         if ($columnIndex -eq 1) { [void]$builder.Append('<tr class=""row' + $rowIndex + '"">') }
@@ -3366,8 +3364,3 @@ function Invoke-LiquidTemplate {
     $ast = ConvertTo-LiquidAst -Template $Template -Dialect $Dialect -Registry $Registry
     return ConvertFrom-LiquidNode -Nodes $ast.Nodes -Runtime $runtime
 }
-
-
-
-
-

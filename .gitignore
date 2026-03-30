@@ -5,3 +5,5 @@ stage/
 .vscode/
 *.code-workspace
 
+# Rendered help files
+en-US/

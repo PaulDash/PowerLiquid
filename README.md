@@ -11,16 +11,14 @@ PowerLiquid is a standalone PowerShell module for tokenizing, parsing, and rende
 
 ## Current Features
 
+**Everything that is in this [Liquid documentation](https://shopify.github.io/liquid/) - so all object types, tags, and filters - is working as of PowerLiquid version 1.0.0.**
+
 - Liquid template tokenization
 - object output with the full current built-in filter set across string, numeric, date, URL, and collection helpers
 - custom tags and filters through an extension registry
 - separate `Liquid` and `JekyllLiquid` dialects
-- AST generation through `ConvertTo-LiquidAst` with token and node diagnostics
+- AST generation  with token and node diagnostics
 - consistent top-level error handling across the exported commands
-
-Almost everything (object types, tags, filters) of what is documented at [this Liquid page](https://shopify.github.io/liquid/) is working as of PowerLiquid version 1.0.0. The only missing features are:
-
-- inline comments inside tags (from Liquid version 5.4.0)
 
 For what can be fixed, see the [Future Improvements](#future-improvements) section and consider contributing!
 
